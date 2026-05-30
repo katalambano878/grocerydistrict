@@ -12,6 +12,7 @@
     --brand-pink-light: #FCE7F3;
     --brand-cream: #F5F4FA;
     --brand-purple: #2B2C86;
+    --store-header-offset: calc(env(safe-area-inset-top, 0px) + 4rem);
   }
 }
 
@@ -510,11 +511,9 @@ img {
 @keyframes pageSlideIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 

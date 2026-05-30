@@ -76,10 +76,10 @@ export default function ProductCard({
   const MAX_SWATCHES = 4;
 
   return (
-    <article className="group h-full w-full overflow-hidden rounded-xl sm:rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-300">
+    <article className="group h-full w-full overflow-hidden rounded-lg sm:rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-300">
       <Link
         href={`/product/${slug}`}
-        className="relative block aspect-square overflow-hidden rounded-xl sm:rounded-2xl bg-brand-carton/10"
+        className="relative block aspect-square overflow-hidden rounded-lg sm:rounded-2xl bg-brand-carton/10"
       >
         <LazyImage
           src={image}
@@ -88,39 +88,39 @@ export default function ProductCard({
         />
 
         {badge && (
-          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-800 shadow-sm">
+          <span className="absolute left-1.5 top-1.5 sm:left-3 sm:top-3 rounded-full bg-white/95 px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-[8px] sm:text-[10px] font-semibold uppercase tracking-[0.08em] sm:tracking-[0.12em] text-gray-800 shadow-sm">
             {badge}
           </span>
         )}
 
         {discount > 0 && (
-          <span className="absolute right-3 top-3 rounded-full bg-brand-brown px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm">
+          <span className="absolute right-1.5 top-1.5 sm:right-3 sm:top-3 rounded-full bg-brand-brown px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-[8px] sm:text-[10px] font-semibold text-white shadow-sm">
             -{discount}%
           </span>
         )}
 
         {!inStock && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
-            <span className="rounded-full bg-[#2B2C86] px-4 py-2 text-xs font-semibold text-white">
+            <span className="rounded-full bg-[#2B2C86] px-2.5 py-1 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-semibold text-white">
               Out of Stock
             </span>
           </div>
         )}
       </Link>
 
-      <div className="p-3 sm:p-4">
-        <p className="text-[10px] uppercase tracking-[0.15em] text-brand-carton font-semibold mb-1">
+      <div className="p-2 sm:p-3 lg:p-4">
+        <p className="text-[8px] sm:text-[10px] uppercase tracking-[0.12em] sm:tracking-[0.15em] text-brand-carton font-semibold mb-0.5 sm:mb-1 line-clamp-1">
           {badge || 'Grocery District'}
         </p>
 
         <Link href={`/product/${slug}`}>
-          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug group-hover:text-brand-brown transition-colors">
+          <h3 className="text-[11px] sm:text-sm font-semibold text-gray-900 line-clamp-2 leading-snug group-hover:text-brand-brown transition-colors">
             {name}
           </h3>
         </Link>
 
         {colorVariants.length > 0 && (
-          <div className="mt-2 flex items-center gap-1.5">
+          <div className="mt-1.5 sm:mt-2 flex items-center gap-1 sm:gap-1.5">
             {colorVariants.slice(0, MAX_SWATCHES).map((color) => (
               <button
                 key={color.name}
@@ -129,7 +129,7 @@ export default function ProductCard({
                   e.preventDefault();
                   setActiveColor(activeColor === color.name ? null : color.name);
                 }}
-                className={`h-3.5 w-3.5 flex-shrink-0 rounded-full border transition-all duration-200 ${
+                className={`h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0 rounded-full border transition-all duration-200 ${
                   activeColor === color.name
                     ? 'scale-110 ring-2 ring-brand-carton ring-offset-1'
                     : 'hover:scale-110'
@@ -138,25 +138,25 @@ export default function ProductCard({
               />
             ))}
             {colorVariants.length > MAX_SWATCHES && (
-              <span className="ml-0.5 text-[10px] text-gray-400">+{colorVariants.length - MAX_SWATCHES}</span>
+              <span className="ml-0.5 text-[9px] sm:text-[10px] text-gray-400">+{colorVariants.length - MAX_SWATCHES}</span>
             )}
           </div>
         )}
 
-        <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-bold text-gray-900">
+        <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-1">
+          <div className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2">
+            <span className="text-[11px] sm:text-sm font-bold text-gray-900 truncate">
               {hasVariants && minVariantPrice ? `From GH₵${minVariantPrice.toFixed(2)}` : `GH₵${price.toFixed(2)}`}
             </span>
             {originalPrice && (
-              <span className="text-xs text-gray-400 line-through">GH₵{originalPrice.toFixed(2)}</span>
+              <span className="text-[10px] sm:text-xs text-gray-400 line-through">GH₵{originalPrice.toFixed(2)}</span>
             )}
           </div>
 
           {hasVariants ? (
             <Link
               href={`/product/${slug}`}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-carton text-white hover:bg-brand-brown transition-colors text-sm shrink-0"
+              className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-brand-carton text-white hover:bg-brand-brown transition-colors text-xs sm:text-sm shrink-0"
             >
               <i className="ri-arrow-right-line" />
             </Link>
@@ -167,7 +167,7 @@ export default function ProductCard({
                 if (inStock) addToCart({ id, name, price, image, quantity: moq, slug, maxStock, moq });
               }}
               disabled={!inStock}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-carton text-white hover:bg-brand-brown transition-colors text-sm shrink-0 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-brand-carton text-white hover:bg-brand-brown transition-colors text-xs sm:text-sm shrink-0 disabled:bg-gray-300 disabled:cursor-not-allowed"
               aria-label={moq > 1 ? `Add ${moq} to cart` : 'Add to cart'}
             >
               <i className="ri-shopping-bag-3-line" />

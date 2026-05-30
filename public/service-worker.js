@@ -1,4 +1,4 @@
-// YOUR_BRAND_NAME - Service Worker v3.0
+// Grocery District - Service Worker v3.0
 const CACHE_VERSION = 'app-v3.0';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
@@ -212,7 +212,7 @@ self.addEventListener('push', (event) => {
 
   const data = event.data.json();
   const options = {
-    body: data.body || 'New update from YOUR_BRAND_NAME',
+    body: data.body || 'New update from Grocery District',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
     vibrate: [100, 50, 100],
@@ -228,7 +228,7 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration.showNotification(
-      data.title || 'YOUR_BRAND_NAME',
+      data.title || 'Grocery District',
       options
     )
   );

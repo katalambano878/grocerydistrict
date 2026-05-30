@@ -55,6 +55,21 @@ export default function Header() {
   const siteName = getSetting('site_name') || 'Grocery District';
 
   useEffect(() => {
+    const syncHeaderOffset = () => {
+      const isSm = window.matchMedia('(min-width: 640px)').matches;
+      const barHeight = isScrolled ? '3.5rem' : isSm ? '4.75rem' : '4rem';
+      document.documentElement.style.setProperty(
+        '--store-header-offset',
+        `calc(env(safe-area-inset-top, 0px) + ${barHeight})`
+      );
+    };
+
+    syncHeaderOffset();
+    window.addEventListener('resize', syncHeaderOffset);
+    return () => window.removeEventListener('resize', syncHeaderOffset);
+  }, [isScrolled]);
+
+  useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll, { passive: true });
 
@@ -152,10 +167,10 @@ export default function Header() {
               }`}
             >
 
-              {/* Left — hamburger + brand */}
-              <div className="flex items-center gap-1.5 min-w-0">
+              {/* Left — mobile menu only (logo lives in drawer + desktop bar) */}
+              <div className="flex items-center lg:hidden">
                 <button
-                  className={`lg:hidden -ml-1.5 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                  className={`-ml-1.5 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
                     isScrolled
                       ? 'text-white/70 hover:text-white hover:bg-white/10'
                       : 'text-[#2B2C86]/70 hover:text-[#2B2C86] hover:bg-[#2B2C86]/5'
@@ -165,7 +180,10 @@ export default function Header() {
                 >
                   <i className="ri-menu-3-line text-[21px]"></i>
                 </button>
+              </div>
 
+              {/* Left — desktop logo */}
+              <div className="hidden lg:flex items-center min-w-0">
                 <Link href="/" className="group" aria-label={`${siteName} — homepage`}>
                   <Brand siteName={siteName} scrolled={isScrolled} />
                 </Link>
