@@ -12,7 +12,6 @@ import ProductCard, {
 import AnimatedSection, { AnimatedGrid } from '@/components/AnimatedSection';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { enrichCategoryForDisplay } from '@/lib/category-display';
-import { formatPrice } from '@/lib/currency';
 import type { CategoryRecord } from '@/lib/categories';
 
 type HomePageClientProps = {
@@ -23,7 +22,7 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
   usePageTitle('');
   const { getSetting, getActiveBanners } = useCMS();
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
-  const [latestProducts, setLatestProducts] = useState<any[]>([]);
+  // const [latestProducts, setLatestProducts] = useState<any[]>([]); // Fresh arrivals section (disabled)
   const [loading, setLoading] = useState(true);
   const heroSlides = [
     {
@@ -42,31 +41,41 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
   useEffect(() => {
     async function fetchProducts() {
       try {
-        const [featuredResult, latestResult] = await Promise.all([
-          supabase
-            .from('products')
-            .select('*, product_variants(*), product_images(*)')
-            .eq('status', 'active')
-            .eq('featured', true)
-            .order('created_at', { ascending: false })
-            .limit(4),
-          supabase
-            .from('products')
-            .select('*, product_variants(*), product_images(*)')
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(12),
-        ]);
+        const featuredResult = await supabase
+          .from('products')
+          .select('*, product_variants(*), product_images(*)')
+          .eq('status', 'active')
+          .eq('featured', true)
+          .order('created_at', { ascending: false })
+          .limit(4);
 
         if (featuredResult.error) throw featuredResult.error;
-        if (latestResult.error) throw latestResult.error;
 
-        setFeaturedProducts(
-          featuredResult.data?.length
-            ? featuredResult.data
-            : (latestResult.data || []).slice(0, 4)
-        );
+        if (featuredResult.data?.length) {
+          setFeaturedProducts(featuredResult.data);
+        } else {
+          const fallbackResult = await supabase
+            .from('products')
+            .select('*, product_variants(*), product_images(*)')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(4);
+
+          if (fallbackResult.error) throw fallbackResult.error;
+          setFeaturedProducts(fallbackResult.data || []);
+        }
+
+        /* Fresh arrivals carousel — re-enable with section below
+        const latestResult = await supabase
+          .from('products')
+          .select('*, product_variants(*), product_images(*)')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(12);
+
+        if (latestResult.error) throw latestResult.error;
         setLatestProducts(latestResult.data || []);
+        */
       } catch (error) {
         console.error('Error fetching products:', error);
       } finally {
@@ -367,6 +376,7 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
         </div>
       </AnimatedSection>
 
+      {/* FRESH ARRIVALS SECTION — disabled; uncomment block below to re-enable
       <AnimatedSection className="bg-brand-cream/55 py-10 sm:py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
@@ -429,6 +439,7 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
           </div>
         </div>
       </AnimatedSection>
+      */}
 
       <AnimatedSection className="bg-white py-10 sm:py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
