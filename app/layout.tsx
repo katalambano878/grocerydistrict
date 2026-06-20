@@ -176,7 +176,7 @@ export default function RootLayout({
                   "telephone": "+233552971577",
                   "email": "hello@grocerydistrict.shop",
                   "priceRange": "$$",
-                  "currenciesAccepted": "GHS",
+                  "currenciesAccepted": "GBP, GHS, USD, EUR, NGN",
                   "paymentAccepted": "Cash, Mobile Money, Bank Transfer, Card",
                   "address": {
                     "@type": "PostalAddress",

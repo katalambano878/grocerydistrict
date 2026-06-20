@@ -8,12 +8,15 @@ import OrderSummary from '@/components/OrderSummary';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabase';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { useCurrency } from '@/context/CurrencyContext';
+import Price from '@/components/Price';
 import { useRecaptcha } from '@/hooks/useRecaptcha';
 
 export default function CheckoutPage() {
   usePageTitle('Checkout');
   const router = useRouter();
   const { cart, subtotal: cartSubtotal, clearCart } = useCart();
+  const { convertToPayment, rates, paymentCurrency, formatPrice } = useCurrency();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,11 +89,16 @@ export default function CheckoutPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentStep]);
 
-  // Calculate Totals
-  const subtotal = cartSubtotal;
-  const shippingCost = 0; // Delivery options temporarily disabled
-  const tax = 0; // No Tax
-  const total = subtotal + shippingCost + tax;
+  // Cart totals are in GBP (base). Display uses geo currency; orders charge in payment currency.
+  const subtotalGbp = cartSubtotal;
+  const shippingGbp = 0;
+  const taxGbp = 0;
+  const totalGbp = subtotalGbp + shippingGbp + taxGbp;
+
+  const subtotal = subtotalGbp;
+  const shippingCost = shippingGbp;
+  const tax = taxGbp;
+  const total = totalGbp;
 
   const validateShipping = () => {
     const newErrors: any = {};
@@ -142,6 +150,12 @@ export default function CheckoutPage() {
       const trackingId = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
       const trackingNumber = `SLI-${trackingId}`;
 
+      const subtotalCharge = convertToPayment(subtotalGbp);
+      const shippingCharge = convertToPayment(shippingGbp);
+      const taxCharge = convertToPayment(taxGbp);
+      const totalCharge = convertToPayment(totalGbp);
+      const fxRate = rates[paymentCurrency] ?? rates.GHS;
+
       // 1. Create Order
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -152,12 +166,12 @@ export default function CheckoutPage() {
           phone: shippingData.phone,
           status: 'pending',
           payment_status: 'pending',
-          currency: 'GHS',
-          subtotal: subtotal,
-          tax_total: tax,
-          shipping_total: shippingCost,
+          currency: paymentCurrency,
+          subtotal: subtotalCharge,
+          tax_total: taxCharge,
+          shipping_total: shippingCharge,
           discount_total: 0,
-          total: total,
+          total: totalCharge,
           shipping_method: deliveryMethod,
           payment_method: paymentMethod,
           shipping_address: shippingData,
@@ -166,7 +180,12 @@ export default function CheckoutPage() {
             guest_checkout: !user,
             first_name: shippingData.firstName,
             last_name: shippingData.lastName,
-            tracking_number: trackingNumber
+            tracking_number: trackingNumber,
+            fx_base_currency: 'GBP',
+            fx_rate: fxRate,
+            fx_payment_currency: paymentCurrency,
+            subtotal_gbp: subtotalGbp,
+            total_gbp: totalGbp,
           }
         }])
         .select()
@@ -209,14 +228,16 @@ export default function CheckoutPage() {
         
         const prodMeta = productMetaMap.get(productId);
         
+        const unitPriceCharge = convertToPayment(item.price);
+
         orderItems.push({
           order_id: order.id,
           product_id: productId,
           product_name: item.name,
           variant_name: item.variant,
           quantity: item.quantity,
-          unit_price: item.price,
-          total_price: item.price * item.quantity,
+          unit_price: unitPriceCharge,
+          total_price: unitPriceCharge * item.quantity,
           metadata: {
             image: item.image,
             slug: item.slug,

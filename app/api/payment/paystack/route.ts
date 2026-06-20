@@ -56,6 +56,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, message: 'Invalid order amount' }, { status: 400 });
         }
 
+        const orderCurrency = (order as { currency?: string }).currency || 'GHS';
+
         const orderRef = order.order_number || orderId;
         const email = customerEmail || order.email;
 
@@ -69,13 +71,13 @@ export async function POST(req: Request) {
         // Unique reference per attempt so retries don't collide
         const uniqueRef = `${orderRef}-R${Date.now()}`;
 
-        // Paystack expects amount in pesewas (GHS * 100)
-        const amountInPesewas = Math.round(amount * 100);
+        // Paystack expects amount in minor units (pesewas for GHS)
+        const amountInMinorUnits = Math.round(amount * 100);
 
         const payload = {
             email,
-            amount: amountInPesewas,
-            currency: 'GHS',
+            amount: amountInMinorUnits,
+            currency: orderCurrency === 'GBP' ? 'GHS' : orderCurrency,
             reference: uniqueRef,
             callback_url: `${baseUrl}/order-success?order=${orderRef}&payment_success=true`,
             metadata: {

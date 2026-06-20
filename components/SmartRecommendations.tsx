@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Price from '@/components/Price';
 import { useState, useEffect } from 'react';
 
 interface Product {
@@ -136,9 +137,9 @@ export default function SmartRecommendations({ productId, type, title }: SmartRe
                   <span className="text-xs text-gray-500">({product.reviews})</span>
                 </div>
                 <div className="flex items-baseline space-x-2">
-                  <span className="text-lg font-bold text-gray-900">GH₵{product.price}</span>
+                  <span className="text-lg font-bold text-gray-900"><Price amount={product.price} /></span>
                   {product.originalPrice && (
-                    <span className="text-sm text-gray-400 line-through">GH₵{product.originalPrice}</span>
+                    <span className="text-sm text-gray-400 line-through"><Price amount={product.originalPrice} /></span>
                   )}
                 </div>
               </div>

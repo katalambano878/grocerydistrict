@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import LazyImage from './LazyImage';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
+import Price from './Price';
 
 const COLOR_MAP: Record<string, string> = {
   black: '#000000', white: '#FFFFFF', red: '#EF4444', blue: '#3B82F6',
@@ -148,10 +150,16 @@ export default function ProductCard({
         <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-1">
           <div className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2">
             <span className="text-[11px] sm:text-sm font-bold text-gray-900 truncate">
-              {hasVariants && minVariantPrice ? `From GH₵${minVariantPrice.toFixed(2)}` : `GH₵${price.toFixed(2)}`}
+              {hasVariants && minVariantPrice ? (
+                <>From <Price amount={minVariantPrice} /></>
+              ) : (
+                <Price amount={price} />
+              )}
             </span>
             {originalPrice && (
-              <span className="text-[10px] sm:text-xs text-gray-400 line-through">GH₵{originalPrice.toFixed(2)}</span>
+              <span className="text-[10px] sm:text-xs text-gray-400 line-through">
+                <Price amount={originalPrice} />
+              </span>
             )}
           </div>
 

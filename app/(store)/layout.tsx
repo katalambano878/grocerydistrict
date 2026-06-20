@@ -9,6 +9,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import NavigationProgress from '@/components/NavigationProgress';
 
 import { CMSProvider } from '@/context/CMSContext';
+import { CurrencyProvider } from '@/context/CurrencyContext';
 
 // Lazy-load non-critical components
 import dynamic from 'next/dynamic';
@@ -74,6 +75,7 @@ export default function StoreLayout({
   const shouldShowChat = CHAT_ENABLED && chatModuleEnabled === true;
 
   return (
+    <CurrencyProvider>
     <CMSProvider>
       <Suspense fallback={null}>
         <NavigationProgress />
@@ -101,5 +103,6 @@ export default function StoreLayout({
         {shouldShowChat && <ChatWidget />}
       </div>
     </CMSProvider>
+    </CurrencyProvider>
   );
 }

@@ -11,6 +11,7 @@ import ProductCard, {
 } from '@/components/ProductCard';
 import AnimatedSection, { AnimatedGrid } from '@/components/AnimatedSection';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import Price from '@/components/Price';
 import { enrichCategoryForDisplay } from '@/lib/category-display';
 import type { CategoryRecord } from '@/lib/categories';
 
@@ -425,7 +426,7 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
                       </p>
                       <div className="mt-2 flex items-center justify-between">
                         <span className="text-sm font-bold text-gray-900">
-                          {formatPrice(product.price || 0)}
+                          <Price amount={product.price || 0} />
                         </span>
                         <Link
                           href={`/product/${product.slug}`}
