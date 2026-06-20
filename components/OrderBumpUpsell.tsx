@@ -53,7 +53,7 @@ export default function OrderBumpUpsell({ products, onToggle }: OrderBumpUpsellP
                 <img 
                   src={product.image} 
                   alt={product.name}
-                  className="w-full h-full object-cover object-top"
+                  className="w-full h-full object-contain object-center p-1"
                 />
               </div>
 

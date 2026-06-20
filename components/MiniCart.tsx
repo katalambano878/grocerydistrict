@@ -96,7 +96,7 @@ export default function MiniCart({ isOpen, onClose }: MiniCartProps) {
                         <img
                           src={item.image}
                           alt={item.name}
-                          className="w-full h-full object-cover object-center"
+                          className="w-full h-full object-contain object-center p-0.5"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-300">

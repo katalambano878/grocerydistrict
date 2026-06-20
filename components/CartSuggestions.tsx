@@ -61,7 +61,7 @@ export default function CartSuggestions() {
                 <img
                   src={product.image}
                   alt={product.name}
-                  className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-contain object-center p-1 hover:scale-105 transition-transform duration-300"
                 />
               </div>
               <div className="p-3">

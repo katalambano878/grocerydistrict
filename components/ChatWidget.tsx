@@ -896,7 +896,7 @@ function ProductCard({ product, onAddToCart }: { product: ChatProduct; onAddToCa
       <div className="flex items-center gap-2.5 p-2.5 sm:p-3">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
           {product.image ? (
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+            <img src={product.image} alt={product.name} className="w-full h-full object-contain object-center p-1" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-300">
               <i className="ri-image-line text-xl" />

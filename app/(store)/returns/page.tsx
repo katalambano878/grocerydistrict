@@ -188,7 +188,7 @@ export default function ReturnsPortalPage() {
                         className="mt-1 w-5 h-5 text-gray-900 rounded border-gray-300 focus:ring-gray-900"
                       />
                       <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover object-top" />
+                        <img src={item.image} alt={item.name} className="w-full h-full object-contain object-center p-0.5" />
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900 mb-1">{item.name}</p>

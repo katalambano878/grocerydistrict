@@ -169,7 +169,7 @@ export default function OrderHistory() {
                       <img
                         src={item.image}
                         alt={item.name}
-                        className="w-full h-full object-cover object-center"
+                        className="w-full h-full object-contain object-center p-0.5"
                       />
                     </div>
                     <div className="flex-1 min-w-0">

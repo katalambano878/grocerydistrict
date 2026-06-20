@@ -383,7 +383,7 @@ function OrderTrackingContent() {
                     <img
                       src={item.products?.product_images?.[0]?.url || item.metadata?.image}
                       alt={item.product_name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain object-center p-0.5"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

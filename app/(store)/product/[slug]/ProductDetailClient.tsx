@@ -308,12 +308,12 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                   const mainSrc = variantImage || product.images[selectedImage];
                   const mainIsVideo = !variantImage && product.media?.[selectedImage]?.type === 'video';
                   return (
-                    <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-4 shadow-lg border border-gray-100">
+                    <div className="relative aspect-square rounded-2xl overflow-hidden bg-white mb-4 shadow-lg border border-gray-100">
                       {mainIsVideo ? (
                         <video
                           key={product.images[selectedImage]}
                           src={product.images[selectedImage]}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                           controls
                           muted
                           loop
@@ -321,15 +321,17 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                           preload="none"
                         />
                       ) : mainSrc ? (
-                        <Image
-                          src={mainSrc}
-                          alt={product.name}
-                          fill
-                          className="object-cover object-center"
-                          sizes="(max-width: 1024px) 100vw, 50vw"
-                          priority={!variantImage}
-                          quality={80}
-                        />
+                        <div className="absolute inset-0 p-4 sm:p-6">
+                          <Image
+                            src={mainSrc}
+                            alt={product.name}
+                            fill
+                            className="object-contain object-center"
+                            sizes="(max-width: 1024px) 100vw, 50vw"
+                            priority={!variantImage}
+                            quality={80}
+                          />
+                        </div>
                       ) : null}
                       {discount > 0 && (
                         <span className="absolute top-6 right-6 bg-[#9A1900] text-white text-sm font-semibold px-4 py-2 rounded-full">
@@ -348,12 +350,12 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                         <button
                           key={index}
                           onClick={() => setSelectedImage(index)}
-                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${selectedImage === index ? 'border-[#2B2C86] shadow-md' : 'border-gray-200 hover:border-gray-300'
+                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-white ${selectedImage === index ? 'border-[#2B2C86] shadow-md' : 'border-gray-200 hover:border-gray-300'
                             }`}
                         >
                           {isVideo ? (
                             <>
-                              <video src={image} className="w-full h-full object-cover" muted preload="none" />
+                              <video src={image} className="w-full h-full object-contain" muted preload="none" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                                 <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center">
                                   <i className="ri-play-fill text-gray-900 text-sm"></i>
@@ -361,14 +363,16 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                               </div>
                             </>
                           ) : (
-                            <Image
-                              src={image}
-                              alt={`${product.name} view ${index + 1}`}
-                              fill
-                              className="object-cover object-center"
-                              sizes="(max-width: 1024px) 25vw, 12vw"
-                              quality={60}
-                            />
+                            <div className="absolute inset-0 p-1">
+                              <Image
+                                src={image}
+                                alt={`${product.name} view ${index + 1}`}
+                                fill
+                                className="object-contain object-center"
+                                sizes="(max-width: 1024px) 25vw, 12vw"
+                                quality={60}
+                              />
+                            </div>
                           )}
                         </button>
                       );
@@ -467,7 +471,7 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                               >
                                 {variantImage ? (
                                   <span className="w-8 h-8 rounded-lg overflow-hidden border border-white/20 flex-shrink-0 bg-gray-100">
-                                    <Image src={variantImage} alt={color} width={32} height={32} className="w-full h-full object-cover" />
+                                    <Image src={variantImage} alt={color} width={32} height={32} className="w-full h-full object-contain p-0.5" />
                                   </span>
                                 ) : (
                                   <span
@@ -525,7 +529,7 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                                   >
                                     {variant.image_url ? (
                                       <span className="w-full aspect-square bg-gray-100 block overflow-hidden">
-                                        <Image src={variant.image_url} alt={variant.name} width={100} height={100} className="w-full h-full object-cover" />
+                                        <Image src={variant.image_url} alt={variant.name} width={100} height={100} className="w-full h-full object-contain p-1" />
                                       </span>
                                     ) : (
                                       <span className="w-full aspect-square bg-gray-100 flex items-center justify-center text-xs text-gray-500 font-medium px-1 text-center">{variant.name}</span>

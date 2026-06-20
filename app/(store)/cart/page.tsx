@@ -101,7 +101,7 @@ export default function CartPage() {
                       {cartItems.map((item) => (
                         <div key={`${item.id}-${item.variant || ''}`} className="flex flex-col sm:flex-row gap-4 sm:gap-6 pb-6 border-b border-gray-200 last:border-0 last:pb-0">
                           <Link href={`/product/${item.slug || item.id}`} className="relative w-full sm:w-32 h-48 sm:h-32 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-                            <Image src={item.image} alt={item.name} fill className="object-cover object-top" sizes="(max-width: 640px) 100vw, 128px" quality={70} />
+                            <Image src={item.image} alt={item.name} fill className="object-contain object-center p-1" sizes="(max-width: 640px) 100vw, 128px" quality={70} />
                           </Link>
 
                           <div className="flex-1">
@@ -188,7 +188,7 @@ export default function CartPage() {
                         {savedItems.map((item) => (
                           <div key={item.id} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0 last:pb-0">
                             <div className="relative w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-                              <Image src={item.image} alt={item.name} fill className="object-cover object-top" sizes="80px" quality={60} />
+                              <Image src={item.image} alt={item.name} fill className="object-contain object-center p-0.5" sizes="80px" quality={60} />
                             </div>
                             <div className="flex-1">
                               <p className="font-semibold text-gray-900 mb-1">{item.name}</p>

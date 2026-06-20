@@ -239,7 +239,8 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
                       alt={item.name}
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-110"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#2B2C86]/92 via-[#2B2C86]/40 to-[#2B2C86]/5" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#2B2C86]/95 via-[#2B2C86]/55 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/70 via-black/35 to-transparent" />
                   </>
                 ) : (
                   <>
@@ -259,14 +260,16 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
 
                 <div className="relative z-10 p-4 sm:p-5">
                   {item.chip ? (
-                    <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 ring-1 ring-white/20 backdrop-blur-md">
+                    <span className="inline-flex items-center rounded-full bg-black/35 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white ring-1 ring-white/25 backdrop-blur-md [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
                       {item.chip}
                     </span>
                   ) : null}
-                  <h3 className={`${item.chip ? 'mt-2' : ''} text-lg sm:text-xl font-bold leading-tight text-white`}>
+                  <h3
+                    className={`${item.chip ? 'mt-2' : ''} text-lg sm:text-xl font-bold leading-tight text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.85),0_2px_10px_rgba(0,0,0,0.55)]`}
+                  >
                     {item.name}
                   </h3>
-                  <span className="mt-1 inline-flex items-center gap-1.5 text-[12px] font-medium text-white/65 transition-colors group-hover:text-white">
+                  <span className="mt-1 inline-flex items-center gap-1.5 text-[12px] font-semibold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)] transition-colors group-hover:text-white/95">
                     Shop now
                     <i className="ri-arrow-right-line transition-transform group-hover:translate-x-1" />
                   </span>
@@ -402,7 +405,7 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
                     key={`${product.id}-${index}`}
                     className="min-w-[180px] sm:min-w-[220px] max-w-[260px] w-[var(--card-width)] flex-shrink-0 rounded-xl sm:rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow"
                   >
-                    <div className="relative aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden bg-brand-carton/10">
+                    <div className="relative aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden bg-white">
                       <Image
                         src={
                           product.product_images?.[0]?.url ||
@@ -410,7 +413,7 @@ export default function HomePageClient({ initialCategories }: HomePageClientProp
                         }
                         alt={product.name}
                         fill
-                        className="object-cover"
+                        className="object-contain object-center p-2 sm:p-3"
                       />
                     </div>
                     <div className="p-3">

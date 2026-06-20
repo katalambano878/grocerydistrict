@@ -144,7 +144,7 @@ export default function MobileSearchOverlay({ isOpen, onClose }: MobileSearchOve
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="w-16 h-16 object-cover rounded-lg"
+                    className="w-16 h-16 object-contain object-center rounded-lg bg-white p-1"
                   />
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-medium text-gray-900 truncate">{product.name}</h4>

@@ -27,7 +27,7 @@ export default function OrderSummary({ items, subtotal, shipping, tax, total }: 
               <img
                 src={item.image}
                 alt={item.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain object-center p-0.5"
               />
               <div className="absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center bg-[#2B2C86] text-white text-xs font-bold rounded-full">
                 {item.quantity}

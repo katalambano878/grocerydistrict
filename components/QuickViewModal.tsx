@@ -64,15 +64,17 @@ export default function QuickViewModal({ product, isOpen, onClose }: QuickViewMo
           <div className="bg-white p-8">
             <div className="grid md:grid-cols-2 gap-8">
               <div>
-                <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
-                  <Image
-                    src={images[selectedImage]}
-                    alt={product.name}
-                    fill
-                    className="object-cover object-top"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    quality={75}
-                  />
+                <div className="relative aspect-square bg-white rounded-lg overflow-hidden mb-4">
+                  <div className="absolute inset-0 p-4">
+                    <Image
+                      src={images[selectedImage]}
+                      alt={product.name}
+                      fill
+                      className="object-contain object-center"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      quality={75}
+                    />
+                  </div>
                 </div>
 
                 {images.length > 1 && (
@@ -81,11 +83,13 @@ export default function QuickViewModal({ product, isOpen, onClose }: QuickViewMo
                       <button
                         key={index}
                         onClick={() => setSelectedImage(index)}
-                        className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-colors ${
+                        className={`relative aspect-square bg-white rounded-lg overflow-hidden border-2 transition-colors ${
                           selectedImage === index ? 'border-[#2B2C86]' : 'border-transparent hover:border-gray-300'
                         }`}
                       >
-                        <Image src={image} alt="" fill className="object-cover object-top" sizes="12vw" quality={50} />
+                        <div className="absolute inset-0 p-1">
+                          <Image src={image} alt="" fill className="object-contain object-center" sizes="12vw" quality={50} />
+                        </div>
                       </button>
                     ))}
                   </div>

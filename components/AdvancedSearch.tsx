@@ -198,7 +198,7 @@ export default function AdvancedSearch() {
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="w-12 h-12 object-cover object-top rounded-lg"
+                    className="w-12 h-12 object-contain object-center rounded-lg bg-white p-0.5"
                   />
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900 text-sm">{product.name}</p>

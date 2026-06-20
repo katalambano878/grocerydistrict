@@ -110,7 +110,7 @@ export default function SmartRecommendations({ productId, type, title }: SmartRe
                 <img
                   src={product.image}
                   alt={product.name}
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-contain object-center p-1 group-hover:scale-105 transition-transform duration-300"
                 />
                 {product.originalPrice && (
                   <div className="absolute top-3 left-3 bg-[#9A1900] text-white px-3 py-1 rounded-full text-xs font-bold">
