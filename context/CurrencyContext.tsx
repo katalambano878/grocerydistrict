@@ -2,7 +2,6 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -13,7 +12,6 @@ import {
   BASE_CURRENCY,
   DEFAULT_DISPLAY_CURRENCY,
   DEFAULT_EXCHANGE_RATES,
-  SELECTABLE_CURRENCIES,
   buildCurrencyMeta,
   convertFromBase,
   convertToBase,
@@ -24,17 +22,13 @@ import {
   type CurrencyMeta,
 } from '@/lib/currency';
 
-const STORAGE_KEY = 'gd-display-currency';
-
 type CurrencyContextValue = {
   baseCurrency: typeof BASE_CURRENCY;
   displayCurrency: CurrencyCode;
   countryCode: string | null;
   rates: Record<CurrencyCode, number>;
   meta: CurrencyMeta;
-  selectableCurrencies: CurrencyCode[];
   isReady: boolean;
-  setDisplayCurrency: (code: CurrencyCode) => void;
   formatPrice: (
     amountInBase: number | string | null | undefined,
     options?: { showSymbol?: boolean }
@@ -48,7 +42,7 @@ type CurrencyContextValue = {
 const CurrencyContext = createContext<CurrencyContextValue | undefined>(undefined);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [displayCurrency, setDisplayCurrencyState] = useState<CurrencyCode>(DEFAULT_DISPLAY_CURRENCY);
+  const [displayCurrency, setDisplayCurrency] = useState<CurrencyCode>(DEFAULT_DISPLAY_CURRENCY);
   const [countryCode, setCountryCode] = useState<string | null>(null);
   const [rates, setRates] = useState<Record<CurrencyCode, number>>(DEFAULT_EXCHANGE_RATES);
   const [isReady, setIsReady] = useState(false);
@@ -56,12 +50,12 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function init() {
-      const saved = localStorage.getItem(STORAGE_KEY) as CurrencyCode | null;
-      if (saved && SELECTABLE_CURRENCIES.includes(saved)) {
-        setDisplayCurrencyState(saved);
-      }
+    // Remove legacy manual currency preference from an earlier UI experiment.
+    try {
+      localStorage.removeItem('gd-display-currency');
+    } catch {}
 
+    async function init() {
       try {
         const res = await fetch('/api/currency/detect', { cache: 'no-store' });
         if (!res.ok) throw new Error('detect failed');
@@ -75,12 +69,9 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
         if (data.rates) setRates({ ...DEFAULT_EXCHANGE_RATES, ...data.rates });
         if (data.countryCode) setCountryCode(data.countryCode);
-
-        if (!saved && data.currency && SELECTABLE_CURRENCIES.includes(data.currency)) {
-          setDisplayCurrencyState(data.currency);
-        }
+        if (data.currency) setDisplayCurrency(data.currency);
       } catch {
-        // Keep defaults — Ghana market
+        // Ghana is the primary market when geo detection fails.
       } finally {
         if (!cancelled) setIsReady(true);
       }
@@ -92,30 +83,26 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const setDisplayCurrency = useCallback((code: CurrencyCode) => {
-    setDisplayCurrencyState(code);
-    localStorage.setItem(STORAGE_KEY, code);
-  }, []);
-
   const meta = useMemo(() => buildCurrencyMeta(displayCurrency, rates), [displayCurrency, rates]);
 
-  const formatPrice = useCallback(
-    (amountInBase: number | string | null | undefined, options?: { showSymbol?: boolean }) =>
-      formatPriceLib(amountInBase, {
-        currency: displayCurrency,
-        rates,
-        showSymbol: options?.showSymbol,
-      }),
+  const formatPrice = useMemo(
+    () =>
+      (amountInBase: number | string | null | undefined, options?: { showSymbol?: boolean }) =>
+        formatPriceLib(amountInBase, {
+          currency: displayCurrency,
+          rates,
+          showSymbol: options?.showSymbol,
+        }),
     [displayCurrency, rates]
   );
 
-  const convertFromBaseFn = useCallback(
-    (amountGbp: number) => convertFromBase(amountGbp, displayCurrency, rates),
+  const convertFromBaseFn = useMemo(
+    () => (amountGbp: number) => convertFromBase(amountGbp, displayCurrency, rates),
     [displayCurrency, rates]
   );
 
-  const convertToBaseFn = useCallback(
-    (amountDisplay: number) => convertToBase(amountDisplay, displayCurrency, rates),
+  const convertToBaseFn = useMemo(
+    () => (amountDisplay: number) => convertToBase(amountDisplay, displayCurrency, rates),
     [displayCurrency, rates]
   );
 
@@ -124,8 +111,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     [countryCode]
   );
 
-  const convertToPaymentFn = useCallback(
-    (amountGbp: number) => convertToPaymentAmount(amountGbp, paymentCurrency, rates),
+  const convertToPaymentFn = useMemo(
+    () => (amountGbp: number) => convertToPaymentAmount(amountGbp, paymentCurrency, rates),
     [paymentCurrency, rates]
   );
 
@@ -136,9 +123,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       countryCode,
       rates,
       meta,
-      selectableCurrencies: SELECTABLE_CURRENCIES,
       isReady,
-      setDisplayCurrency,
       formatPrice,
       convertFromBase: convertFromBaseFn,
       convertToBase: convertToBaseFn,
@@ -151,7 +136,6 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       rates,
       meta,
       isReady,
-      setDisplayCurrency,
       formatPrice,
       convertFromBaseFn,
       convertToBaseFn,
@@ -171,7 +155,6 @@ export function useCurrency() {
   return ctx;
 }
 
-/** Safe fallback when provider is not mounted (e.g. tests). */
 export function useCurrencyOptional() {
   return useContext(CurrencyContext);
 }

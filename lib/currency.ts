@@ -53,9 +53,6 @@ export const COUNTRY_CURRENCY: Record<string, CurrencyCode> = {
 /** Primary market default when geo is unknown. */
 export const DEFAULT_DISPLAY_CURRENCY: CurrencyCode = 'GHS';
 
-/** Currencies shoppers can pick manually (shown in header selector). */
-export const SELECTABLE_CURRENCIES: CurrencyCode[] = ['GHS', 'GBP', 'USD', 'EUR', 'NGN'];
-
 export function currencyForCountry(countryCode: string | null | undefined): CurrencyCode {
   if (!countryCode) return DEFAULT_DISPLAY_CURRENCY;
   return COUNTRY_CURRENCY[countryCode.toUpperCase()] ?? DEFAULT_DISPLAY_CURRENCY;

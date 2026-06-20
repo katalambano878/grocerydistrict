@@ -8,7 +8,6 @@ import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabase';
 import { useCMS } from '@/context/CMSContext';
 import AnnouncementBar from './AnnouncementBar';
-import CurrencySelector from './CurrencySelector';
 
 /** Brand lockup using the official Grocery District logo.
  *  On the light header the colour logo sits on transparent; when the header
@@ -251,8 +250,6 @@ export default function Header() {
                 >
                   <i className="ri-search-2-line text-[20px]"></i>
                 </button>
-
-                <CurrencySelector isScrolled={isScrolled} compact />
 
                 {/* Wishlist */}
                 <Link
