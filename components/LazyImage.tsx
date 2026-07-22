@@ -42,8 +42,17 @@ export default function LazyImage({
     onLoad?.();
   };
 
-  // Fallback for invalid/empty URLs
-  if (!src || hasError) {
+  const resolvedSrc =
+    !src || src.includes('via.placeholder.com')
+      ? '/placeholder-product.svg'
+      : src;
+
+  const useNativeImg =
+    resolvedSrc.startsWith('/storage/') ||
+    resolvedSrc.startsWith('/placeholder') ||
+    resolvedSrc.endsWith('.svg');
+
+  if (!resolvedSrc || hasError) {
     return (
       <div className={`relative overflow-hidden bg-gray-200 flex items-center justify-center ${className}`} style={{ width, height }}>
         <span className="text-gray-400 text-xs">No Image</span>
@@ -51,25 +60,36 @@ export default function LazyImage({
     );
   }
 
-  // Use unoptimized for external URLs (Supabase storage, placeholders) so they always load
-  const isExternal = /^https?:\/\//.test(src);
+  const fitClass = objectFit === 'contain' ? 'object-contain' : 'object-cover';
+
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ width, height }}>
       {!isLoaded && (
         <div className="absolute inset-0 bg-gray-200 animate-pulse z-10"></div>
       )}
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes={sizes}
-        className={`${objectFit === 'contain' ? 'object-contain' : 'object-cover'} object-center transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'} ${imageClassName}`}
-        onLoad={handleLoad}
-        onError={handleError}
-        priority={priority}
-        quality={75}
-        unoptimized={isExternal}
-      />
+      {useNativeImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={resolvedSrc}
+          alt={alt}
+          className={`absolute inset-0 w-full h-full ${fitClass} object-center transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'} ${imageClassName}`}
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+      ) : (
+        <Image
+          src={resolvedSrc}
+          alt={alt}
+          fill
+          sizes={sizes}
+          className={`${fitClass} object-center transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'} ${imageClassName}`}
+          onLoad={handleLoad}
+          onError={handleError}
+          priority={priority}
+          quality={75}
+          unoptimized={/^https?:\/\//.test(resolvedSrc)}
+        />
+      )}
     </div>
   );
 }
