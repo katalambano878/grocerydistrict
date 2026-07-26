@@ -1,5 +1,6 @@
 'use client';
 
+import { money, asNumber } from '@/lib/format-money';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -753,7 +754,7 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
                                 <p className="text-blue-900 font-semibold mb-1">Discount Calculation</p>
                                 {price && comparePrice && parseFloat(comparePrice) > parseFloat(price) ? (
                                     <p className="text-blue-800">
-                                        Savings: £ {(parseFloat(comparePrice) - parseFloat(price)).toFixed(2)}
+                                        Savings: £ {money(parseFloat(comparePrice) - parseFloat(price))}
                                         <span className="ml-2">
                                             ({(((parseFloat(comparePrice) - parseFloat(price)) / parseFloat(comparePrice)) * 100).toFixed(0)}% off)
                                         </span>
@@ -778,7 +779,7 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
                                             setComparePrice('');
                                         } else {
                                             const p = parseFloat(price);
-                                            if (p > 0) setComparePrice(String((p * 1.1).toFixed(2)));
+                                            if (p > 0) setComparePrice(String(money(p * 1.1)));
                                         }
                                     }}
                                     className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer ${onSale ? 'bg-gray-900' : 'bg-gray-300'}`}

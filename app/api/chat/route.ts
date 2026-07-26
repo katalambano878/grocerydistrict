@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { money } from '@/lib/format-money';
 import {
   searchProducts,
   getProductForCart,
@@ -26,7 +28,6 @@ import { searchSiteKnowledge, getSiteMapSummary } from '@/lib/site-knowledge';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const groqKey = process.env.GROQ_API_KEY;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -403,7 +404,7 @@ ${getSiteMapSummary()}`;
 - Name: ${profile.name}
 - Email: ${profile.email}
 - Total orders: ${profile.total_orders}
-- Total spent: GH₵${profile.total_spent.toFixed(2)}
+- Total spent: GH₵${money(profile.total_spent)}
 - Last order: ${profile.last_order_at ? new Date(profile.last_order_at).toLocaleDateString('en-GB') : 'N/A'}
 Address the customer by their first name. You can access their orders and profile directly.`;
   } else {
@@ -486,20 +487,16 @@ export async function POST(request: Request) {
 
     const { userId, email: userEmail } = await detectAuth(request);
 
-    const supabase = supabaseServiceKey
-      ? createClient(supabaseUrl, supabaseServiceKey)
-      : createClient(supabaseUrl, supabaseKey);
-
     let profile: ChatCustomerProfile | null = null;
     if (userId) {
-      profile = await getCustomerProfile(supabase, userId);
+      profile = await getCustomerProfile(supabaseAdmin, userId);
     }
 
     // Fetch AI memories for context
     let aiMemories: any[] = [];
     if (userId || userEmail) {
       try {
-        const { data: memData } = await supabase.rpc('get_ai_memories', {
+        const { data: memData } = await supabaseAdmin.rpc('get_ai_memories', {
           p_customer_id: userId || null,
           p_customer_email: userEmail || null,
         });
@@ -513,7 +510,7 @@ export async function POST(request: Request) {
       try {
         const searchTerms = userText.toLowerCase().split(/\s+/).filter(w => w.length > 3).slice(0, 3);
         if (searchTerms.length > 0) {
-          const { data: kbArticles } = await supabase
+          const { data: kbArticles } = await supabaseAdmin
             .from('support_knowledge_base')
             .select('title, content')
             .eq('is_published', true)
@@ -536,13 +533,13 @@ export async function POST(request: Request) {
 
     let result: any;
     if (groqKey) {
-      result = await handleWithAI(supabase, messages, userText, groqKey, userId, userEmail, profile, pagePath, aiMemories, kbContext, cartItems);
+      result = await handleWithAI(supabaseAdmin, messages, userText, groqKey, userId, userEmail, profile, pagePath, aiMemories, kbContext, cartItems);
     } else {
-      result = await handleWithoutAI(supabase, userText, profile);
+      result = await handleWithoutAI(supabaseAdmin, userText, profile);
     }
 
     if (sessionId) {
-      persistConversation(supabase, sessionId, userId, userEmail, profile, messages, userText, result, pagePath).catch((e) =>
+      persistConversation(supabaseAdmin, sessionId, userId, userEmail, profile, messages, userText, result, pagePath).catch((e) =>
         console.error('[Chat API] Persistence error:', e)
       );
     }
@@ -550,7 +547,7 @@ export async function POST(request: Request) {
     // Update customer insights asynchronously
     if (userId) {
       try {
-        await supabase.rpc('upsert_customer_insight', {
+        await supabaseAdmin.rpc('upsert_customer_insight', {
           p_customer_id: userId,
           p_customer_email: userEmail,
           p_customer_name: profile?.name || null,
@@ -836,9 +833,9 @@ async function handleWithAI(
   // Inject cart context so AI knows what the customer wants to buy
   if (cartItems && cartItems.length > 0) {
     const cartTotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    systemPrompt += `\n\nCUSTOMER'S CURRENT CART (${cartItems.length} item${cartItems.length > 1 ? 's' : ''}, subtotal GH₵${cartTotal.toFixed(2)}):`;
+    systemPrompt += `\n\nCUSTOMER'S CURRENT CART (${cartItems.length} item${cartItems.length > 1 ? 's' : ''}, subtotal GH₵${money(cartTotal)}):`;
     for (const item of cartItems) {
-      systemPrompt += `\n- ${item.name} × ${item.quantity} = GH₵${(item.price * item.quantity).toFixed(2)} (ID: ${item.id})`;
+      systemPrompt += `\n- ${item.name} × ${item.quantity} = GH₵${money(item.price * item.quantity)} (ID: ${item.id})`;
     }
     systemPrompt += `\nWhen the customer wants to checkout, use these product IDs and quantities for the create_order tool.`;
   }
@@ -1181,7 +1178,7 @@ async function executeToolCall(
           type: 'payment_link',
           paymentUrl: orderResult.paymentUrl,
           orderNumber: orderResult.orderNumber,
-          label: `Pay GH₵${orderResult.total?.toFixed(2)} Now`,
+          label: `Pay GH₵${money(orderResult.total)} Now`,
         };
       }
 

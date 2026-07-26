@@ -1,5 +1,6 @@
 'use client';
 
+import { money, asNumber } from '@/lib/format-money';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -102,7 +103,7 @@ function printReceipt(order: {
             <tr>
                 <td style="text-align:left;padding:2px 0;">${item.name}${discountAmt}</td>
                 <td style="text-align:center;padding:2px 4px;">${item.cartQuantity}</td>
-                <td style="text-align:right;padding:2px 0;">${lineTotal.toFixed(2)}</td>
+                <td style="text-align:right;padding:2px 0;">${money(lineTotal)}</td>
             </tr>`;
     }).join('');
 
@@ -145,15 +146,15 @@ function printReceipt(order: {
     </table>
     <div class="divider"></div>
     <table>
-        <tr><td>Subtotal</td><td style="text-align:right;">GH₵${order.subtotal.toFixed(2)}</td></tr>
-        ${order.discount > 0 ? `<tr><td>Discount</td><td style="text-align:right;">-GH₵${order.discount.toFixed(2)}</td></tr>` : ''}
-        <tr class="total-row"><td>TOTAL</td><td style="text-align:right;">GH₵${order.total.toFixed(2)}</td></tr>
+        <tr><td>Subtotal</td><td style="text-align:right;">GH₵${money(order.subtotal)}</td></tr>
+        ${order.discount > 0 ? `<tr><td>Discount</td><td style="text-align:right;">-GH₵${money(order.discount)}</td></tr>` : ''}
+        <tr class="total-row"><td>TOTAL</td><td style="text-align:right;">GH₵${money(order.total)}</td></tr>
     </table>
     <div class="divider"></div>
     <div>Payment: ${paymentLabel[order.paymentMethod] || order.paymentMethod}</div>
     ${order.paymentMethod === 'cash' && order.amountTendered ? `
-        <div>Tendered: GH₵${order.amountTendered.toFixed(2)}</div>
-        <div class="bold">Change: GH₵${(order.change || 0).toFixed(2)}</div>
+        <div>Tendered: GH₵${money(order.amountTendered)}</div>
+        <div class="bold">Change: GH₵${money(order.change || 0)}</div>
     ` : ''}
     ${order.paymentPending ? '<div class="bold" style="margin-top:4px;">*** PAYMENT PENDING ***</div>' : ''}
     <div class="divider"></div>
@@ -511,7 +512,7 @@ export default function POSPage() {
             id: `hold-${Date.now()}`,
             cart: [...cart],
             customer: selectedCustomer,
-            note: holdNote || `${cart.length} items - GH₵${grandTotal.toFixed(2)}`,
+            note: holdNote || `${cart.length} items - GH₵${money(grandTotal)}`,
             heldAt: Date.now(),
         };
         const updated = [...heldOrders, held];
@@ -967,7 +968,7 @@ export default function POSPage() {
                                         <div className="p-2.5 flex flex-col flex-1">
                                             <h3 className="text-xs font-semibold text-gray-900 line-clamp-2 mb-auto">{product.name}</h3>
                                             <div className="flex items-center justify-between mt-1.5">
-                                                <span className="text-gray-900 font-bold text-sm">GH₵{product.price.toFixed(2)}</span>
+                                                <span className="text-gray-900 font-bold text-sm">GH₵{money(product.price)}</span>
                                                 {!outOfStock && (
                                                     <div className="w-7 h-7 rounded-full bg-gray-50 text-gray-900 flex items-center justify-center group-hover:bg-gray-900 group-hover:text-white transition-colors">
                                                         <i className="ri-add-line text-sm" />
@@ -994,7 +995,7 @@ export default function POSPage() {
                                 Items
                             </span>
                             <span>View Cart</span>
-                            <span>GH₵{grandTotal.toFixed(2)}</span>
+                            <span>GH₵{money(grandTotal)}</span>
                         </button>
                     </div>
                 )}
@@ -1063,8 +1064,8 @@ export default function POSPage() {
                                             </button>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xs font-bold text-gray-900">GH₵{(item.price * item.cartQuantity * (1 - item.discount / 100)).toFixed(2)}</p>
-                                            {item.discount > 0 && <p className="text-[10px] text-red-500 line-through">GH₵{(item.price * item.cartQuantity).toFixed(2)}</p>}
+                                            <p className="text-xs font-bold text-gray-900">GH₵{money(item.price * item.cartQuantity * (1 - item.discount / 100))}</p>
+                                            {item.discount > 0 && <p className="text-[10px] text-red-500 line-through">GH₵{money(item.price * item.cartQuantity)}</p>}
                                         </div>
                                     </div>
                                     {item.discount > 0 && (
@@ -1081,17 +1082,17 @@ export default function POSPage() {
                     <div className="space-y-1 text-sm">
                         <div className="flex justify-between text-gray-600">
                             <span>Subtotal</span>
-                            <span>GH₵{cartSubtotal.toFixed(2)}</span>
+                            <span>GH₵{money(cartSubtotal)}</span>
                         </div>
                         {totalDiscount > 0 && (
                             <div className="flex justify-between text-red-600">
                                 <span>Discount</span>
-                                <span>-GH₵{totalDiscount.toFixed(2)}</span>
+                                <span>-GH₵{money(totalDiscount)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-200 mt-1">
                             <span>Total</span>
-                            <span>GH₵{grandTotal.toFixed(2)}</span>
+                            <span>GH₵{money(grandTotal)}</span>
                         </div>
                     </div>
 
@@ -1136,7 +1137,7 @@ export default function POSPage() {
                             disabled={cart.length === 0}
                             className="px-3 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-900 font-bold text-sm shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            Charge GH₵{grandTotal.toFixed(2)}
+                            Charge GH₵{money(grandTotal)}
                         </button>
                     </div>
                 </div>
@@ -1160,7 +1161,7 @@ export default function POSPage() {
                                     {!completedOrder.paymentPending && paymentMethod === 'cash' && changeDue > 0 && (
                                         <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-4">
                                             <p className="text-sm text-gray-900">Change Due</p>
-                                            <p className="text-3xl font-bold text-gray-800">GH₵{changeDue.toFixed(2)}</p>
+                                            <p className="text-3xl font-bold text-gray-800">GH₵{money(changeDue)}</p>
                                         </div>
                                     )}
 
@@ -1213,8 +1214,8 @@ export default function POSPage() {
 
                                     <div className="text-center py-4 bg-gray-50 rounded-xl border border-gray-100">
                                         <p className="text-xs text-gray-800 uppercase tracking-wider font-semibold">Amount to Pay</p>
-                                        <p className="text-4xl font-extrabold text-gray-900 mt-1">GH₵{grandTotal.toFixed(2)}</p>
-                                        {totalDiscount > 0 && <p className="text-xs text-red-500 mt-1">Discount: -GH₵{totalDiscount.toFixed(2)}</p>}
+                                        <p className="text-4xl font-extrabold text-gray-900 mt-1">GH₵{money(grandTotal)}</p>
+                                        {totalDiscount > 0 && <p className="text-xs text-red-500 mt-1">Discount: -GH₵{money(totalDiscount)}</p>}
                                     </div>
 
                                     {/* Customer */}
@@ -1347,7 +1348,7 @@ export default function POSPage() {
                                                     className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 outline-none font-bold text-lg"
                                                     placeholder="0.00" autoFocus />
                                             </div>
-                                            {changeDue > 0 && <p className="text-right text-gray-700 font-bold mt-2">Change: GH₵{changeDue.toFixed(2)}</p>}
+                                            {changeDue > 0 && <p className="text-right text-gray-700 font-bold mt-2">Change: GH₵{money(changeDue)}</p>}
                                             {changeDue < 0 && amountTendered && <p className="text-right text-red-500 font-medium mt-2">Insufficient</p>}
                                             <div className="grid grid-cols-4 gap-2 mt-3">
                                                 {[1, 2, 5, 10, 20, 50, 100, 200].map(amount => (
@@ -1364,7 +1365,7 @@ export default function POSPage() {
                                                 {[grandTotal, Math.ceil(grandTotal / 10) * 10, Math.ceil(grandTotal / 50) * 50].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map(amount => (
                                                     <button key={`exact-${amount}`} onClick={() => setAmountTendered(amount.toString())}
                                                         className="flex-1 px-2 py-2 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-lg text-xs font-semibold text-gray-900 transition-colors">
-                                                        Exact: GH₵{amount.toFixed(2)}
+                                                        Exact: GH₵{money(amount)}
                                                     </button>
                                                 ))}
                                             </div>
@@ -1400,7 +1401,7 @@ export default function POSPage() {
                                         ) : paymentMethod === 'momo' ? (
                                             <><i className="ri-smartphone-line" /><span>Generate Payment Link</span></>
                                         ) : (
-                                            <><i className="ri-secure-payment-line" /><span>Complete Payment — GH₵{grandTotal.toFixed(2)}</span></>
+                                            <><i className="ri-secure-payment-line" /><span>Complete Payment — GH₵{money(grandTotal)}</span></>
                                         )}
                                     </button>
                                 </div>
@@ -1441,7 +1442,7 @@ export default function POSPage() {
                                                 </p>
                                             </div>
                                             <p className="font-bold text-gray-900 text-sm">
-                                                GH₵{held.cart.reduce((s, i) => s + i.price * i.cartQuantity, 0).toFixed(2)}
+                                                GH₵{money(held.cart.reduce((s, i) => s + i.price * i.cartQuantity, 0))}
                                             </p>
                                         </div>
                                         <div className="text-xs text-gray-500 mb-3">
@@ -1481,7 +1482,7 @@ export default function POSPage() {
                         <div className="p-5 space-y-4">
                             <div className="text-center py-4 bg-gray-50 rounded-xl">
                                 <p className="text-xs text-gray-700 uppercase tracking-wider font-semibold">Total Sales</p>
-                                <p className="text-3xl font-extrabold text-gray-900">GH₵{dailySummary.totalSales.toFixed(2)}</p>
+                                <p className="text-3xl font-extrabold text-gray-900">GH₵{money(dailySummary.totalSales)}</p>
                                 <p className="text-sm text-gray-500 mt-1">{dailySummary.orderCount} order{dailySummary.orderCount !== 1 ? 's' : ''}</p>
                             </div>
                             <div className="grid grid-cols-3 gap-3">
