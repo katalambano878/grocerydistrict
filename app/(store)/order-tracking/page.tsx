@@ -311,7 +311,7 @@ function OrderTrackingContent() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total</p>
-                  <p className="font-semibold text-gray-900">GH₵ {Numbermoney(order.total)}</p>
+                  <p className="font-semibold text-gray-900">GH₵ {money(order.total)}</p>
                 </div>
               </div>
             </div>
@@ -399,7 +399,7 @@ function OrderTrackingContent() {
                     <p className="text-xs text-gray-500">{item.variant_name}</p>
                   )}
                 </div>
-                <p className="font-bold text-gray-900">GH₵ {Numbermoney(item.unit_price)}</p>
+                <p className="font-bold text-gray-900">GH₵ {money(item.unit_price)}</p>
               </div>
             ))}
           </div>

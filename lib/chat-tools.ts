@@ -1,10 +1,16 @@
+import { getRatesMap } from '@/lib/exchange-rates';
+import { filterSafe } from '@/lib/sanitize';
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type ChatProduct = {
   id: string;
   name: string;
   slug: string;
+  /** Base price in GBP — what the storefront cart stores. */
   price: number;
+  /** Price in GH₵ — what the assistant should quote. */
+  priceGhs: number;
   image: string;
   quantity: number;
   maxStock: number;
@@ -63,7 +69,7 @@ export async function searchProducts(
   query: string,
   limit = 4
 ): Promise<ChatProduct[]> {
-  const term = (query || '').trim();
+  const term = filterSafe(query || '');
   if (!term) return [];
 
   const { data, error } = await supabase
@@ -79,7 +85,8 @@ export async function searchProducts(
     return [];
   }
 
-  return (data || []).map(mapProduct);
+  const rate = await ghsRate();
+  return (data || []).map((p: any) => mapProduct(p, rate));
 }
 
 // ─── 2. Get Product for Cart (existing) ─────────────────────────────────────
@@ -101,7 +108,7 @@ export async function getProductForCart(
     : await q.eq('slug', slugOrId).single();
 
   if (error || !data) return null;
-  return mapProduct(data);
+  return mapProduct(data, await ghsRate());
 }
 
 // ─── 3. Track Order ─────────────────────────────────────────────────────────
@@ -320,7 +327,8 @@ export async function getRecommendations(
     .gt('quantity', 0);
 
   if (context?.trim()) {
-    query = query.or(`name.ilike.%${context.trim()}%,description.ilike.%${context.trim()}%`);
+    const term = filterSafe(context);
+    if (term) query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%`);
   }
 
   const { data, error } = await query
@@ -329,7 +337,8 @@ export async function getRecommendations(
     .limit(4);
 
   if (error || !data) return [];
-  return data.map(mapProduct);
+  const rate = await ghsRate();
+  return data.map((p: any) => mapProduct(p, rate));
 }
 
 // ─── 9. Get Store Info (static) ─────────────────────────────────────────────
@@ -407,10 +416,11 @@ interface ChatShippingInfo {
   region: string;
 }
 
+// Matches the checkout page: pickup is free, doorstep delivery is quoted
+// to the customer separately.
 const DELIVERY_COSTS: Record<string, number> = {
-  standard: 20,
-  express: 40,
   pickup: 0,
+  doorstep: 0,
 };
 
 const MAX_ITEMS_PER_ORDER = 20;
@@ -486,10 +496,10 @@ export async function createChatOrder(
     }
   }
 
-  if (!['standard', 'express', 'pickup'].includes(deliveryMethod)) {
+  if (!Object.prototype.hasOwnProperty.call(DELIVERY_COSTS, deliveryMethod)) {
     return { success: false, message: 'Invalid delivery method.' };
   }
-  if (!['paystack', 'cod'].includes(paymentMethod)) {
+  if (paymentMethod !== 'paystack') {
     return { success: false, message: 'Invalid payment method.' };
   }
 
@@ -538,12 +548,15 @@ export async function createChatOrder(
       }
     }
 
-    // Calculate totals
+    // Catalogue prices are GBP; orders are charged in GHS.
+    const rate = await ghsRate();
+    const toGhs = (gbp: number) => Math.round(gbp * rate * 100) / 100;
     let subtotal = 0;
     for (const item of items) {
       const product = productMap.get(item.productId)!;
-      subtotal += Number(product.price) * item.quantity;
+      subtotal += toGhs(Number(product.price)) * item.quantity;
     }
+    subtotal = Math.round(subtotal * 100) / 100;
     const total = subtotal + shippingCost;
 
     // Generate order number and tracking number
@@ -560,7 +573,7 @@ export async function createChatOrder(
       address: sanitizedShipping.address,
       city: sanitizedShipping.city,
       region: sanitizedShipping.region,
-      country: 'Nigeria',
+      country: 'Ghana',
     };
 
     // Insert order
@@ -607,8 +620,8 @@ export async function createChatOrder(
         product_id: product.id,
         product_name: product.name,
         quantity: item.quantity,
-        unit_price: Number(product.price),
-        total_price: Number(product.price) * item.quantity,
+        unit_price: toGhs(Number(product.price)),
+        total_price: Math.round(toGhs(Number(product.price)) * item.quantity * 100) / 100,
         metadata: {
           image: product.product_images?.[0]?.url || '',
           slug: product.slug,
@@ -652,14 +665,14 @@ export async function createChatOrder(
             success: true,
             orderNumber,
             total,
-            message: `Order ${orderNumber} created (₦${total.toFixed(2)}), but payment gateway is not configured. Please complete payment through the website.`,
+            message: `Order ${orderNumber} created (GH₵${total.toFixed(2)}), but payment gateway is not configured. Please complete payment through the website.`,
           };
         }
 
         const uniqueRef = `${orderNumber}-R${Date.now()}`;
         const payload = {
           email: sanitizedShipping.email,
-          amount: Math.round(total * 100), // Paystack expects kobo
+          amount: Math.round(total * 100), // Paystack expects pesewas
           currency: 'GHS',
           reference: uniqueRef,
           callback_url: `${baseUrl}/order-success?order=${orderNumber}&payment_success=true`,
@@ -681,6 +694,8 @@ export async function createChatOrder(
                 ...(order.metadata || {}),
                 paystack_reference: uniqueRef,
                 paystack_init_at: new Date().toISOString(),
+                paystack_amount: total,
+                paystack_currency: 'GHS',
               },
             })
             .eq('id', order.id);
@@ -710,7 +725,7 @@ export async function createChatOrder(
             success: true,
             orderNumber,
             total,
-            message: `Order ${orderNumber} created (₦${total.toFixed(2)}), but we couldn't generate a payment link. Please visit your order page to complete payment.`,
+            message: `Order ${orderNumber} created (GH₵${total.toFixed(2)}), but we couldn't generate a payment link. Please visit your order page to complete payment.`,
           };
         }
       } catch (payErr: any) {
@@ -719,7 +734,7 @@ export async function createChatOrder(
           success: true,
           orderNumber,
           total,
-          message: `Order ${orderNumber} created (₦${total.toFixed(2)}), but payment initiation failed. Please visit the website to complete payment.`,
+          message: `Order ${orderNumber} created (GH₵${total.toFixed(2)}), but payment initiation failed. Please visit the website to complete payment.`,
         };
       }
     }
@@ -739,14 +754,21 @@ export async function createChatOrder(
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
-function mapProduct(p: any): ChatProduct {
-  const qty = Number(p.quantity) ?? 0;
+/** GHS per 1 GBP, from the stored exchange rates. */
+async function ghsRate(): Promise<number> {
+  const rates = await getRatesMap();
+  return Number(rates.GHS) || 1;
+}
+
+function mapProduct(p: any, rate: number): ChatProduct {
+  const qty = Number(p.quantity) || 0;
   const moq = Number(p.metadata?.moq) || 1;
   return {
     id: p.id,
     name: p.name,
     slug: p.slug,
     price: Number(p.price),
+    priceGhs: Math.round(Number(p.price) * rate * 100) / 100,
     image: p.product_images?.[0]?.url || '',
     quantity: qty,
     maxStock: qty,

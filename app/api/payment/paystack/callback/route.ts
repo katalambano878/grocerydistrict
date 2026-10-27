@@ -53,7 +53,11 @@ export async function POST(req: Request) {
             .update(rawBody)
             .digest('hex');
 
-        if (!signature || signature !== expectedSignature) {
+        if (
+            !signature ||
+            signature.length !== expectedSignature.length ||
+            !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+        ) {
             console.error('[Paystack Callback] Invalid signature. Got:',
                 signature.substring(0, 12) + '...', '| Expected:',
                 expectedSignature.substring(0, 12) + '...');
@@ -139,10 +143,11 @@ export async function POST(req: Request) {
         // SECURITY: Verify amount matches — REJECT if mismatch.
         // Paystack returns amount in pesewas, our DB total is in GHS.
         // ============================================================
-        if (data.amount !== undefined && data.amount !== null) {
+        {
             const paidAmount = Number(data.amount) / 100; // pesewas -> GHS
-            const expectedAmount = Number(existingOrder.total);
-            if (Math.abs(paidAmount - expectedAmount) > 0.01) {
+            const expectedAmount = Number(existingOrder.metadata?.paystack_amount ?? existingOrder.total);
+            const currencyOk = !data.currency || String(data.currency).toUpperCase() === 'GHS';
+            if (!Number.isFinite(paidAmount) || !currencyOk || Math.abs(paidAmount - expectedAmount) > 0.01) {
                 console.error('[Paystack Callback] AMOUNT MISMATCH — REJECTING! Expected:', expectedAmount, 'Got:', paidAmount, 'Order:', merchantOrderRef);
                 return NextResponse.json({
                     success: false,

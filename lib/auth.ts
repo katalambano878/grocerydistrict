@@ -16,12 +16,52 @@ export interface AuthResult {
  * Verify that the request has a valid Supabase session
  * and optionally check for admin/staff role.
  */
+/**
+ * Access token from `Authorization: Bearer`, the admin `sb-access-token`
+ * cookie, or a Supabase `sb-*-auth-token` cookie.
+ */
+export function getAccessToken(request: Request): string | null {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7).trim() || null;
+
+    const cookieHeader = request.headers.get('cookie') || '';
+    const match = cookieHeader.match(/(?:^|;\s*)sb-access-token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1].trim()) || null;
+
+    const authCookie = cookieHeader
+        .split(';')
+        .map((c) => c.trim())
+        .find((c) => c.startsWith('sb-') && c.split('=')[0].endsWith('-auth-token'));
+    if (!authCookie) return null;
+
+    const decoded = decodeURIComponent(authCookie.split('=').slice(1).join('=').trim());
+    try {
+        const parsed = JSON.parse(decoded);
+        if (Array.isArray(parsed) && parsed[0]) return parsed[0];
+        if (parsed?.access_token) return parsed.access_token;
+        if (typeof parsed === 'string') return parsed;
+    } catch {
+        return decoded || null;
+    }
+    return null;
+}
+
+/**
+ * Guard for staff-only API routes. Returns null when the caller is admin or
+ * staff, otherwise the 401/403 response to send back.
+ */
+export async function requireStaff(request: Request): Promise<Response | null> {
+    const auth = await verifyAuth(request, { requireAdmin: true });
+    if (auth.authenticated) return null;
+    const status = auth.error === 'Admin access required' ? 403 : 401;
+    return Response.json({ error: auth.error || 'Unauthorized' }, { status });
+}
+
 export async function verifyAuth(
     request: Request,
     options: { requireAdmin?: boolean } = {}
 ): Promise<AuthResult> {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    const token = getAccessToken(request);
 
     if (!token) {
         return { authenticated: false, error: 'Missing authorization token' };

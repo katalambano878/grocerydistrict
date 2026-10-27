@@ -101,14 +101,13 @@ export async function POST(req: Request) {
                     'API ok:', checkResult.status, '| Tx status:', data.status);
 
                 if (checkResult.status === true && String(data.status).toLowerCase() === 'success') {
-                    // Verify amount if provided (pesewas -> GHS)
-                    if (data.amount !== undefined && data.amount !== null) {
-                        const paidAmount = Number(data.amount) / 100;
-                        const expectedAmount = Number(order.total);
-                        if (Math.abs(paidAmount - expectedAmount) > 0.01) {
-                            console.error('[Paystack Verify] AMOUNT MISMATCH! Expected:', expectedAmount, 'Got:', paidAmount);
-                            continue;
-                        }
+                    // Amount and currency must match what we asked Paystack to collect.
+                    const paidAmount = Number(data.amount) / 100; // pesewas -> GHS
+                    const expectedAmount = Number(order.metadata?.paystack_amount ?? order.total);
+                    const currencyOk = !data.currency || String(data.currency).toUpperCase() === 'GHS';
+                    if (!Number.isFinite(paidAmount) || !currencyOk || Math.abs(paidAmount - expectedAmount) > 0.01) {
+                        console.error('[Paystack Verify] AMOUNT MISMATCH! Expected:', expectedAmount, 'GHS, got:', paidAmount, data.currency);
+                        continue;
                     }
                     verifiedData = data;
                     verifiedRef = ref;

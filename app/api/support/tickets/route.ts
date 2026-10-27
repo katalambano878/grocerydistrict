@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { requireStaff } from '@/lib/auth';
+import { filterSafe } from '@/lib/sanitize';
 
 export async function GET(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
   const status = searchParams.get('status') || '';
   const priority = searchParams.get('priority') || '';
-  const search = searchParams.get('search') || '';
+  const search = filterSafe(searchParams.get('search') || '');
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -29,6 +33,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
 
   const { data: ticketNum } = await supabaseAdmin.rpc('generate_ticket_number');
@@ -74,6 +80,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const { id, ...updates } = body;
   if (!id) return NextResponse.json({ error: 'Ticket ID required' }, { status: 400 });

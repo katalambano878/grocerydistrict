@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
-import { randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { query } from "./pool";
 import { authJwtSecret } from "./mode";
 
@@ -299,4 +299,49 @@ export async function updateUserMetadata(
   }
   const user = await getUserById(userId);
   return { user, error: null };
+}
+
+const RESET_TTL_MINUTES = 60;
+
+function hashResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Start a password reset. Returns a one-time token to email to the user, or
+ * null when no account exists (callers must not reveal which).
+ */
+export async function createPasswordResetToken(email: string): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  const { rows } = await query<{ id: string }>(
+    `SELECT id FROM auth.users WHERE lower(email) = $1 AND deleted_at IS NULL LIMIT 1`,
+    [normalized]
+  );
+  if (!rows[0]) return null;
+  const token = randomBytes(32).toString("hex");
+  await query(
+    `UPDATE auth.users SET recovery_token = $1, recovery_sent_at = now(), updated_at = now() WHERE id = $2`,
+    [hashResetToken(token), rows[0].id]
+  );
+  return token;
+}
+
+/** Finish a password reset with the emailed token. The token works once. */
+export async function resetPasswordWithToken(
+  token: string,
+  password: string
+): Promise<{ error: string | null }> {
+  if (!token || !/^[0-9a-f]{64}$/.test(token)) return { error: "This reset link is invalid." };
+  if (!password || password.length < 8) return { error: "Password must be at least 8 characters" };
+  const hash = bcrypt.hashSync(password, 10);
+  const { rowCount } = await query(
+    `UPDATE auth.users
+        SET encrypted_password = $1, recovery_token = '', updated_at = now()
+      WHERE recovery_token = $2
+        AND recovery_sent_at > now() - ($3 || ' minutes')::interval
+        AND deleted_at IS NULL`,
+    [hash, hashResetToken(token), String(RESET_TTL_MINUTES)]
+  );
+  if (rowCount === 0) return { error: "This reset link is invalid or has expired." };
+  return { error: null };
 }

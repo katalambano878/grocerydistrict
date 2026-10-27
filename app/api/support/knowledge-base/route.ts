@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { requireStaff } from '@/lib/auth';
+import { filterSafe } from '@/lib/sanitize';
 
 export async function GET(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
-  const search = searchParams.get('search') || '';
+  const search = filterSafe(searchParams.get('search') || '');
   const category = searchParams.get('category') || '';
   const published = searchParams.get('published');
 
@@ -23,6 +27,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const { data, error } = await supabaseAdmin
     .from('support_knowledge_base')
@@ -44,6 +50,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const { id, ...updates } = body;
   if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -60,6 +68,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });

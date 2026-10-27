@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import type { CartItem } from '@/context/CartContext';
 import MarkdownMessage from '@/components/MarkdownMessage';
+import { supabase } from '@/lib/supabase';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ type ChatProduct = {
   name: string;
   slug: string;
   price: number;
+  priceGhs?: number;
   image: string;
   quantity: number;
   maxStock: number;
@@ -87,6 +89,18 @@ type ChatMessage = {
 const STORAGE_KEY = 'sl-chat-messages';
 const SESSION_KEY = 'sl-chat-session';
 const WIDGET_TITLE = "Grocery District";
+
+/** JSON headers plus the shopper's session, so the assistant can see their orders. */
+async function chatHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+  } catch {
+    // Guests chat without a session.
+  }
+  return headers;
+}
 
 function getSessionId(): string {
   if (typeof window === 'undefined') return '';
@@ -247,7 +261,7 @@ export default function ChatWidget() {
 
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await chatHeaders(),
         credentials: 'include',
         body: JSON.stringify({
           messages: messages.slice(-18).map((m) => ({ role: m.role, content: m.content })),
@@ -361,7 +375,7 @@ export default function ChatWidget() {
 
       const chatRes = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await chatHeaders(),
         credentials: 'include',
         body: JSON.stringify({
           messages: messages.slice(-18).map(m => ({ role: m.role, content: m.content })),
@@ -906,7 +920,7 @@ function ProductCard({ product, onAddToCart }: { product: ChatProduct; onAddToCa
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{product.name}</p>
-          <p className="text-sm font-bold text-gray-600">GH₵{money(product.price)}</p>
+          <p className="text-sm font-bold text-gray-600">GH₵{money(product.priceGhs ?? product.price)}</p>
           <span className={`text-[10px] font-medium ${product.inStock ? 'text-gray-600' : 'text-[#FF6666]'}`}>
             {product.inStock ? 'In Stock' : 'Out of Stock'}
           </span>

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { requireStaff } from '@/lib/auth';
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from('support_ticket_messages')
@@ -14,6 +17,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const { id } = await params;
   const body = await req.json();
 

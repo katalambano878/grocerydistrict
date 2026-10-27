@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { isPlainPostgres } from '@/lib/db/mode';
 
 function getAccessToken(request: Request): string | null {
   const authHeader = request.headers.get('authorization');
@@ -34,7 +35,7 @@ function getAccessToken(request: Request): string | null {
  * Returns current admin/staff user and profile using service role (bypasses RLS).
  */
 export async function GET(request: Request) {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!isPlainPostgres() && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json(
       { error: 'Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY not set' },
       { status: 503 }

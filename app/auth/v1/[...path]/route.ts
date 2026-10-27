@@ -9,6 +9,7 @@ import {
   updateUserMetadata,
 } from "@/lib/db/auth";
 import { isPlainPostgres } from "@/lib/db/mode";
+import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -109,6 +110,12 @@ export async function POST(
 
     if (grant === "password") {
       const email = String(body.email || "");
+      const ip = getClientIdentifier(req);
+      const byIp = checkRateLimit(`auth-login:${ip}`, RATE_LIMITS.auth);
+      const byEmail = checkRateLimit(`auth-login:${email.trim().toLowerCase()}`, RATE_LIMITS.auth);
+      if (!byIp.success || !byEmail.success) {
+        return gotrueError("Too many sign-in attempts. Please wait a minute and try again.", 429, "over_request_rate_limit");
+      }
       const password = String(body.password || "");
       const { session, error } = await signInWithPassword(email, password);
       if (error || !session) {
@@ -130,6 +137,10 @@ export async function POST(
   }
 
   if (slug === "signup") {
+    const limit = checkRateLimit(`auth-signup:${getClientIdentifier(req)}`, RATE_LIMITS.auth);
+    if (!limit.success) {
+      return gotrueError("Too many sign-up attempts. Please wait a minute and try again.", 429, "over_request_rate_limit");
+    }
     const { session, error } = await signUpWithPassword({
       email: String(body.email || ""),
       password: String(body.password || ""),

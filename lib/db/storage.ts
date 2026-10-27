@@ -21,11 +21,61 @@ function publicBase(): string {
 }
 
 function signingSecret(): string {
-  return (
+  const secret =
     process.env.STORAGE_SIGNING_SECRET ||
-    process.env.JWT_SECRET ||
-    "storage-dev-secret"
-  );
+    process.env.AUTH_JWT_SECRET ||
+    process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("STORAGE_SIGNING_SECRET (or AUTH_JWT_SECRET) must be set in production");
+  }
+  return "storage-dev-secret";
+}
+
+/** Buckets whose objects are world-readable (mirrors the old storage_public_read policy). */
+export const PUBLIC_BUCKETS = new Set([
+  "product-images",
+  "category-images",
+  "avatars",
+  "blog-images",
+  "blog-covers",
+  "review-images",
+  "cms-images",
+  "banners",
+  "site-media",
+]);
+
+const BUCKET_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
+
+const INLINE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "video/mp4",
+  "video/webm",
+  "application/pdf",
+]);
+
+/**
+ * Response headers for serving a stored object. Anything that is not a plain
+ * image/video/PDF is forced to download so an uploaded HTML or SVG file can
+ * never run script on the store's origin.
+ */
+export function objectResponseHeaders(contentType: string): Record<string, string> {
+  const type = contentType.split(";")[0].trim().toLowerCase();
+  const headers: Record<string, string> = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+  };
+  if (INLINE_TYPES.has(type)) {
+    headers["Content-Type"] = type;
+  } else {
+    headers["Content-Type"] = "application/octet-stream";
+    headers["Content-Disposition"] = "attachment";
+  }
+  return headers;
 }
 
 export function signObjectToken(bucket: string, objectPath: string, expEpoch: number): string {
@@ -50,10 +100,12 @@ export function verifyObjectToken(
 }
 
 function safeJoin(bucket: string, objectPath: string): string {
+  if (!BUCKET_RE.test(bucket)) throw new Error("Invalid bucket name");
   const clean = objectPath.replace(/^\/+/, "");
-  const full = path.normalize(path.join(STORAGE_ROOT, bucket, clean));
-  const base = path.normalize(path.join(STORAGE_ROOT, bucket));
-  if (!full.startsWith(base)) throw new Error("Path traversal blocked");
+  if (!clean || clean.endsWith(".meta.json")) throw new Error("Invalid object path");
+  const base = path.resolve(STORAGE_ROOT, bucket);
+  const full = path.resolve(base, clean);
+  if (!full.startsWith(base + path.sep)) throw new Error("Path traversal blocked");
   return full;
 }
 

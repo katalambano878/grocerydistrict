@@ -219,7 +219,12 @@ export async function middleware(request: NextRequest) {
   // ============================================================
   const inMaintenance = await isMaintenanceModeEnabled();
   if (inMaintenance) {
-    const isAdmin = request.cookies.get('admin_session')?.value === '1';
+    // Staff can browse the store during maintenance. Check the signed session,
+    // not the client-set `admin_session` flag, which anyone could forge.
+    const token = extractToken(request);
+    const isAdmin = usePlainPg
+      ? !!token && (await verifyPlainPgAdmin(token)).ok
+      : request.cookies.get('admin_session')?.value === '1';
     if (!isAdmin) {
       return NextResponse.redirect(new URL('/maintenance', request.url));
     }

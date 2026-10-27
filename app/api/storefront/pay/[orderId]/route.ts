@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
+
+const NO_STORE = { 'Cache-Control': 'private, no-store' };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   const { orderId } = await params;
+  const limit = checkRateLimit(`pay-lookup:${getClientIdentifier(request)}`, RATE_LIMITS.orderLookup);
+  if (!limit.success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: NO_STORE });
+  }
 
   try {
     // Fetch order (by UUID or order_number)
@@ -13,7 +20,7 @@ export async function GET(
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select('*, order_items(id, product_id, product_name, variant_name, quantity, unit_price, metadata)')
-      .or(isUUID ? `id.eq.${orderId}` : `order_number.eq.${orderId}`)
+      .eq(isUUID ? 'id' : 'order_number', orderId)
       .single();
 
     if (orderError || !order) {
@@ -30,7 +37,7 @@ export async function GET(
         // Fetch current product stock
         const { data: product } = await supabaseAdmin
           .from('products')
-          .select('stock, status, name')
+          .select('quantity, track_quantity, status, name')
           .eq('id', item.product_id)
           .single();
 
@@ -50,28 +57,29 @@ export async function GET(
         if (variantId) {
           const { data: variant } = await supabaseAdmin
             .from('product_variants')
-            .select('stock')
+            .select('quantity')
             .eq('id', variantId)
             .single();
 
-          if (variant && typeof variant.stock === 'number' && variant.stock < item.quantity) {
+          if (variant && typeof variant.quantity === 'number' && variant.quantity < item.quantity) {
             outOfStockItems.push(`${item.product_name}${item.variant_name ? ` (${item.variant_name})` : ''}`);
             continue;
           }
         }
 
-        // Check overall product stock
-        if (typeof product.stock === 'number' && product.stock < item.quantity) {
+        // Check overall product stock (variant items were checked above)
+        if (!variantId && product.track_quantity !== false && typeof product.quantity === 'number' && product.quantity < item.quantity) {
           outOfStockItems.push(item.product_name);
         }
       }
     }
 
+    const { user_id: _userId, ...publicOrder } = order;
     return NextResponse.json({
-      order,
+      order: publicOrder,
       stockValid: outOfStockItems.length === 0,
       outOfStockItems,
-    });
+    }, { headers: NO_STORE });
   } catch (err: any) {
     console.error('[Pay API] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

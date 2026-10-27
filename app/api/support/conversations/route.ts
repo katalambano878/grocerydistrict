@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { requireStaff } from '@/lib/auth';
+import { filterSafe } from '@/lib/sanitize';
 
 export async function GET(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
-  const search = searchParams.get('search') || '';
+  const search = filterSafe(searchParams.get('search') || '');
   const sentiment = searchParams.get('sentiment') || '';
   const category = searchParams.get('category') || '';
   const resolved = searchParams.get('resolved') || '';
@@ -32,6 +36,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const { id, ...updates } = body;
   if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });

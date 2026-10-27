@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { escapeHtml } from '@/lib/sanitize';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 'missing_api_key');
@@ -232,6 +232,7 @@ export async function sendOrderConfirmation(order: any) {
         return 'Customer';
     };
     const name = getName();
+    const safeName = escapeHtml(name);
 
     // Prefer top-level phone, then shipping address phone
     const phone = orderPhone || shipping_address?.phone;
@@ -245,7 +246,7 @@ export async function sendOrderConfirmation(order: any) {
     // Fetch order items to get preorder_shipping info
     let shippingNotes: string[] = [];
     try {
-        const { data: items } = await supabase
+        const { data: items } = await supabaseAdmin
             .from('order_items')
             .select('product_name, metadata')
             .eq('order_id', id);
@@ -270,7 +271,7 @@ export async function sendOrderConfirmation(order: any) {
 <div style="text-align:center;margin-bottom:24px;">
   <div style="width:64px;height:64px;background-color:${BRAND.colorLight};border-radius:50%;margin:0 auto 16px;line-height:64px;font-size:28px;">&#10003;</div>
   <h2 style="margin:0 0 4px;color:#111827;font-size:24px;">Order Confirmed!</h2>
-  <p style="margin:0;color:#6b7280;font-size:15px;">Thank you for your purchase, ${name}.</p>
+  <p style="margin:0;color:#6b7280;font-size:15px;">Thank you for your purchase, ${safeName}.</p>
 </div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:12px;overflow:hidden;margin:20px 0;">
@@ -301,8 +302,8 @@ ${emailButton('Track Your Order', trackingUrl)}
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:12px;overflow:hidden;margin:16px 0;">
   ${emailInfoRow('Order', `#${order_number || id}`)}
-  ${emailInfoRow('Customer', `${name}`)}
-  ${emailInfoRow('Email', email)}
+  ${emailInfoRow('Customer', safeName)}
+  ${emailInfoRow('Email', escapeHtml(email || ''))}
   ${emailInfoRow('Total', `GH₵${Number(total).toFixed(2)}`)}
   ${trackingNumber ? emailInfoRow('Tracking', trackingNumber) : ''}
 </table>
@@ -310,7 +311,7 @@ ${emailButton('Track Your Order', trackingUrl)}
 ${emailShippingNotes(shippingNotes)}
 
 ${emailButton('View Order in Admin', `${baseUrl}/admin/orders/${id}`)}
-`, `New order #${order_number} from ${name}`);
+`, `New order #${order_number} from ${safeName}`);
 
     await sendEmail({
         to: ADMIN_EMAIL,
@@ -352,6 +353,7 @@ export async function sendOrderStatusUpdate(order: any, newStatus: string) {
         return 'Customer';
     };
     const name = getName();
+    const safeName = escapeHtml(name);
     const phone = orderPhone || shipping_address?.phone;
     const trackingNumber = metadata?.tracking_number || '';
     const trackingUrl = `${baseUrl}/order-tracking?order=${order_number || id}`;
@@ -400,7 +402,7 @@ export async function sendOrderStatusUpdate(order: any, newStatus: string) {
 <div style="text-align:center;margin-bottom:24px;">
   <div style="width:64px;height:64px;background-color:${sc.bg};border-radius:50%;margin:0 auto 16px;line-height:64px;font-size:28px;">${sc.icon}</div>
   <h2 style="margin:0 0 4px;color:#111827;font-size:22px;">Order Update</h2>
-  <p style="margin:0;color:#6b7280;font-size:14px;">Hi ${name}, here's an update on your order.</p>
+  <p style="margin:0;color:#6b7280;font-size:14px;">Hi ${safeName}, here's an update on your order.</p>
 </div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:12px;overflow:hidden;margin:20px 0;">
@@ -425,7 +427,8 @@ ${emailButton('Track Your Order', trackingUrl)}
 }
 
 export async function sendWelcomeMessage(user: { email: string, firstName: string, phone?: string }) {
-    const { email, firstName, phone } = user;
+    const { email, phone } = user;
+    const firstName = escapeHtml(user.firstName || '');
 
     // Email
     await sendEmail({
@@ -497,6 +500,7 @@ export async function sendPaymentLink(order: any) {
         return 'Customer';
     };
     const name = getName();
+    const safeName = escapeHtml(name);
     const phone = orderPhone || shipping_address?.phone;
 
     console.log(`[Notification] Sending payment link for Order #${order_number} | Phone: ${phone ? 'Present' : 'Missing'}`);
@@ -509,7 +513,7 @@ export async function sendPaymentLink(order: any) {
 <div style="text-align:center;margin-bottom:24px;">
   <div style="width:64px;height:64px;background-color:#fef3c7;border-radius:50%;margin:0 auto 16px;line-height:64px;font-size:28px;">&#128179;</div>
   <h2 style="margin:0 0 4px;color:#111827;font-size:22px;">Complete Your Order</h2>
-  <p style="margin:0;color:#6b7280;font-size:14px;">Hi ${name}, your order is waiting for payment.</p>
+  <p style="margin:0;color:#6b7280;font-size:14px;">Hi ${safeName}, your order is waiting for payment.</p>
 </div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:12px;overflow:hidden;margin:20px 0;">
@@ -527,7 +531,7 @@ ${emailButton('Pay Now — GH₵' + Number(total).toFixed(2), paymentUrl, '#d977
 
     // SMS with payment link
     if (phone) {
-        const smsMessage = `Hi ${name}, complete your order #${order_number} (₦${Number(total).toFixed(2)}) here: ${paymentUrl}`;
+        const smsMessage = `Hi ${name}, complete your order #${order_number} (GH₵${Number(total).toFixed(2)}) here: ${paymentUrl}`;
         
         await sendSMS({
             to: phone,
@@ -588,5 +592,18 @@ export async function sendContactMessage(data: { name: string, email: string, su
 
 ${emailButton('Reply to ' + safeName, `mailto:${safeEmail}?subject=Re: ${encodeURIComponent(subject)}`)}
 `, `New contact from ${safeName}: ${safeSubject}`)
+    });
+}
+
+export async function sendPasswordResetEmail(email: string, resetUrl: string) {
+    await sendEmail({
+        to: email,
+        subject: `Reset your ${BRAND.name} password`,
+        html: emailLayout(`
+<h2 style="margin:0 0 16px;color:#111827;font-size:22px;text-align:center;">Reset your password</h2>
+<p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px;">We received a request to reset the password for your account. The link below works once and expires in 1 hour.</p>
+${emailButton('Choose a new password', resetUrl)}
+<p style="color:#9ca3af;font-size:12px;line-height:1.6;margin:16px 0 0;">If you didn't ask for this, you can ignore this email. Your password won't change.</p>
+`, 'Reset your password'),
     });
 }

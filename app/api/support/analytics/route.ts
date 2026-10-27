@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { requireStaff } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const days = parseInt(searchParams.get('days') || '30');
   const since = new Date(Date.now() - days * 86400000).toISOString();

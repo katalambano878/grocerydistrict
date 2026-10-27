@@ -94,22 +94,20 @@ export function checkRateLimit(
  * @returns Client identifier string
  */
 export function getClientIdentifier(request: Request): string {
-  // Try various headers for the real IP
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
-  
+  // The reverse proxy (Traefik on Coolify) overwrites X-Real-Ip with the
+  // connecting address, so it cannot be spoofed by the client. The first
+  // X-Forwarded-For entry can, so it is only a last resort.
   const realIp = request.headers.get('x-real-ip');
   if (realIp) {
-    return realIp;
+    return realIp.trim();
   }
-  
-  const cfConnectingIp = request.headers.get('cf-connecting-ip');
-  if (cfConnectingIp) {
-    return cfConnectingIp;
+
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const hops = forwardedFor.split(',').map((h) => h.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
   }
-  
+
   // Fallback to a default identifier
   return 'unknown';
 }
@@ -136,6 +134,24 @@ export const RATE_LIMITS = {
     windowSeconds: 60 // 50 requests per minute
   },
   
+  // Sign-in / sign-up - slow down password guessing
+  auth: {
+    maxRequests: 10,
+    windowSeconds: 60
+  },
+
+  // Paid AI endpoints (chat, speech) - protect the API budget
+  ai: {
+    maxRequests: 20,
+    windowSeconds: 60
+  },
+
+  // Public order lookups - stop order-number enumeration
+  orderLookup: {
+    maxRequests: 30,
+    windowSeconds: 60
+  },
+
   // General API - default limits
   default: {
     maxRequests: 100,

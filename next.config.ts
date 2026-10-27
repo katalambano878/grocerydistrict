@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
@@ -56,9 +57,10 @@ const nextConfig: NextConfig = {
           { key: 'Content-Type', value: 'application/manifest+json' }
         ]
       },
-      // Cache storefront API routes aggressively (5 min CDN, revalidate in background)
+      // Cache public catalogue API routes (15 min CDN, revalidate in background).
+      // Order, payment and checkout routes return private data and must not be cached.
       {
-        source: '/api/storefront/:path*',
+        source: '/api/storefront/:path(products|products/.*|categories|modules|shop)',
         headers: [
           { key: 'Cache-Control', value: 'public, s-maxage=900, stale-while-revalidate=1800' }
         ]

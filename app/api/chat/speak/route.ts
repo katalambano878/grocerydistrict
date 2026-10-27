@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
+import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
 
 const groqKey = process.env.GROQ_API_KEY;
 
 export async function POST(request: Request) {
+  const limit = checkRateLimit(`tts:${getClientIdentifier(request)}`, RATE_LIMITS.ai);
+  if (!limit.success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
   if (!groqKey) {
     return NextResponse.json({ error: 'Text-to-speech not configured' }, { status: 500 });
   }

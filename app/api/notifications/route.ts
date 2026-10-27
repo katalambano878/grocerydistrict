@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         // 'order_created' requires a valid order to exist (verified below)
         // 'contact' is public but rate-limited
         // ============================================================
-        const adminOnlyTypes = ['campaign', 'order_updated', 'order_status', 'payment_link', 'welcome'];
+        const adminOnlyTypes = ['campaign', 'order_updated', 'order_status', 'payment_link'];
         const requiresAdminAuth = adminOnlyTypes.includes(type);
 
         if (requiresAdminAuth) {
@@ -56,11 +56,12 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: 'Missing order identifier' }, { status: 400 });
             }
 
-            const orderRef = payload.order_number || payload.id;
+            const orderRef = String(payload.order_number || payload.id);
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderRef);
             const { data: order, error: orderError } = await supabaseAdmin
                 .from('orders')
-                .select('id, order_number, created_at')
-                .or(`order_number.eq.${orderRef},id.eq.${orderRef}`)
+                .select('*')
+                .eq(isUuid ? 'id' : 'order_number', orderRef)
                 .single();
 
             if (orderError || !order) {
@@ -73,7 +74,16 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: 'Order confirmation can only be sent for recent orders' }, { status: 400 });
             }
 
-            await sendOrderConfirmation(payload);
+            // Send from the stored order, never the request body: otherwise this
+            // public endpoint could mail arbitrary content to any address.
+            if (order.metadata?.confirmation_sent_at) {
+                return NextResponse.json({ success: true, message: 'Order confirmation already sent' });
+            }
+            await sendOrderConfirmation(order);
+            await supabaseAdmin
+                .from('orders')
+                .update({ metadata: { ...(order.metadata || {}), confirmation_sent_at: new Date().toISOString() } })
+                .eq('id', order.id);
             return NextResponse.json({ success: true, message: 'Order confirmation sent' });
         }
 
@@ -118,10 +128,16 @@ export async function POST(request: Request) {
         }
 
         if (type === 'welcome') {
-            if (!payload.email) {
-                return NextResponse.json({ error: 'Missing email' }, { status: 400 });
+            // Signed-in users may only welcome themselves.
+            const auth = await verifyAuth(request);
+            const userEmail = String(auth.user?.email || '').toLowerCase();
+            if (!auth.authenticated || !userEmail || userEmail !== String(payload.email || '').toLowerCase()) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
-            await sendWelcomeMessage(payload);
+            await sendWelcomeMessage({
+                email: userEmail,
+                firstName: String(payload.firstName || '').slice(0, 100),
+            });
             return NextResponse.json({ success: true, message: 'Welcome message sent' });
         }
 

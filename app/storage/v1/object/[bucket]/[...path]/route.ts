@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createStorageClient } from "@/lib/db/storage";
 import { isPlainPostgres } from "@/lib/db/mode";
+import { resolveRequester } from "@/lib/db/rest-policy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+/** Uploads and deletes go through the admin API; only staff may use the raw shim. */
+async function requireStaff(req: NextRequest): Promise<NextResponse | null> {
+  const who = await resolveRequester(req.headers.get("authorization"));
+  if (who.isStaff) return null;
+  return NextResponse.json({ error: "Unauthorized" }, { status: who.userId ? 403 : 401 });
+}
 
 /**
  * Supabase Storage upload:
@@ -17,6 +27,8 @@ export async function POST(
   if (!isPlainPostgres()) {
     return NextResponse.json({ error: "DATABASE_URL not set" }, { status: 503 });
   }
+  const denied = await requireStaff(req);
+  if (denied) return denied;
 
   const { bucket, path } = await ctx.params;
   const objectPath = path.map(decodeURIComponent).join("/");
@@ -25,6 +37,9 @@ export async function POST(
     req.headers.get("content-type") || "application/octet-stream";
 
   const buf = Buffer.from(await req.arrayBuffer());
+  if (buf.length > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: "File too large" }, { status: 413 });
+  }
   const storage = createStorageClient();
   const { data, error } = await storage.from(bucket).upload(objectPath, buf, {
     contentType,
@@ -51,6 +66,9 @@ export async function DELETE(
   if (!isPlainPostgres()) {
     return NextResponse.json({ error: "DATABASE_URL not set" }, { status: 503 });
   }
+  const denied = await requireStaff(req);
+  if (denied) return denied;
+
   const { bucket, path } = await ctx.params;
   const objectPath = path.map(decodeURIComponent).join("/");
   const storage = createStorageClient();

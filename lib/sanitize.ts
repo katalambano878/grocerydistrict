@@ -86,3 +86,11 @@ export function maskEmail(email: string): string {
     if (!domain) return '***';
     return local.slice(0, 2) + '***@' + domain;
 }
+
+/**
+ * Make free text safe to embed in a PostgREST `.or()` filter string. Commas
+ * and parentheses would otherwise let the caller add their own filter terms.
+ */
+export function filterSafe(term: string, maxLength = 100): string {
+    return String(term || '').replace(/[,()\\]/g, ' ').trim().slice(0, maxLength);
+}

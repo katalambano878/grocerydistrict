@@ -94,6 +94,29 @@ function uuidSafeLeft(col: string, value: any): string {
   return ident(col);
 }
 
+function toNonNegativeInt(n: unknown, label: string): number {
+  const v = Number(n);
+  if (!Number.isInteger(v) || v < 0) throw new Error(`Invalid ${label}: ${String(n)}`);
+  return v;
+}
+
+/**
+ * Every (parent table -> embedded table) edge in a select string, nested
+ * embeds included. The REST access policy uses this to stop anonymous
+ * callers from pulling private tables in through an embed.
+ */
+export function listEmbedEdges(table: string, sel: string): Array<[string, string]> {
+  const edges: Array<[string, string]> = [];
+  const walk = (parent: string, parsed: ParsedSelect) => {
+    for (const e of parsed.embeds) {
+      edges.push([parent, e.table]);
+      walk(e.table, e.select);
+    }
+  };
+  walk(table, parseSelect(sel || "*"));
+  return edges;
+}
+
 // ---- select-string parser (handles nested embeds with parentheses) ---------
 function parseSelect(sel: string): ParsedSelect {
   const result: ParsedSelect = { columns: [], star: false, embeds: [] };
@@ -253,7 +276,7 @@ function splitTopLevel(s: string): string[] {
 }
 
 // ---- the chainable query builder -------------------------------------------
-class QueryBuilder implements PromiseLike<{ data: any; error: any; count: number | null }> {
+export class QueryBuilder implements PromiseLike<{ data: any; error: any; count: number | null }> {
   private table: string;
   private action: "select" | "insert" | "update" | "upsert" | "delete" = "select";
   private selectStr = "*";
@@ -362,13 +385,25 @@ class QueryBuilder implements PromiseLike<{ data: any; error: any; count: number
     return this;
   }
   limit(n: number) {
-    this.limitN = n;
+    this.limitN = toNonNegativeInt(n, "limit");
     return this;
   }
   range(from: number, to: number) {
-    this.rangeFrom = from;
-    this.rangeTo = to;
+    this.rangeFrom = toNonNegativeInt(from, "range start");
+    this.rangeTo = toNonNegativeInt(to, "range end");
     return this;
+  }
+  /** Server-only: AND a trusted SQL fragment (`?` placeholders) into WHERE. */
+  whereRaw(sql: string, params: any[] = []) {
+    this.filters.push({ kind: "raw", sql, params });
+    return this;
+  }
+  /** The parsed select string, for callers that need to inspect embeds. */
+  get selectString(): string {
+    return this.selectStr;
+  }
+  get tableName(): string {
+    return this.table;
   }
   single() {
     this.singleMode = "single";
@@ -418,6 +453,15 @@ class QueryBuilder implements PromiseLike<{ data: any; error: any; count: number
         clauses.push(`NOT (${inner})`);
       } else if (f.kind === "or") {
         clauses.push(this.orClause(f.orParts!, params));
+      } else if (f.kind === "raw") {
+        // Trusted server-side SQL with `?` placeholders (used by the REST
+        // access policy, never by request input).
+        let i = 0;
+        const sql = f.sql!.replace(/\?/g, () => {
+          params.push(f.params![i++]);
+          return `$${params.length}`;
+        });
+        clauses.push(`(${sql})`);
       }
     }
     return clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -427,7 +471,10 @@ class QueryBuilder implements PromiseLike<{ data: any; error: any; count: number
     if (value === null || value === "null") return `${ident(col)} IS NULL`;
     if (value === true || value === "true") return `${ident(col)} IS TRUE`;
     if (value === false || value === "false") return `${ident(col)} IS FALSE`;
-    return `${ident(col)} IS NOT DISTINCT FROM ${value}`;
+    if (value === "unknown") return `${ident(col)} IS UNKNOWN`;
+    // PostgREST only accepts null/true/false/unknown here. Never splice the
+    // raw value into SQL: it arrives straight from the request query string.
+    throw new Error(`Unsupported is value: ${String(value)}`);
   }
 
   private cmpClause(col: string, op: string, value: any, params: any[]): string {

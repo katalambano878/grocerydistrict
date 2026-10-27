@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { money } from '@/lib/format-money';
+import { getRatesMap } from '@/lib/exchange-rates';
+import { getAccessToken } from '@/lib/auth';
+import {
+  checkRateLimit as checkIpRateLimit,
+  getClientIdentifier,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
 import {
   searchProducts,
   getProductForCart,
@@ -26,8 +32,6 @@ import { searchSiteKnowledge, getSiteMapSummary } from '@/lib/site-knowledge';
 
 // ─── Env ────────────────────────────────────────────────────────────────────
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const groqKey = process.env.GROQ_API_KEY;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -286,13 +290,13 @@ const LLM_TOOLS = [
           },
           delivery_method: {
             type: 'string',
-            enum: ['standard', 'express', 'pickup'],
-            description: 'Delivery method. Standard: GH₵3,000, Express: GH₵6,000, Pickup: Free',
+            enum: ['pickup', 'doorstep'],
+            description: 'Delivery method. pickup = collect from the store (free); doorstep = delivery, cost quoted separately by the store',
           },
           payment_method: {
             type: 'string',
-            enum: ['paystack', 'cod'],
-            description: 'Payment method. paystack = online payment (card, bank transfer, USSD, mobile money), cod = Cash on Delivery (Lagos only)',
+            enum: ['paystack'],
+            description: 'Payment method. paystack = online payment (card, bank transfer, USSD, mobile money)',
           },
         },
         required: ['items', 'shipping', 'delivery_method', 'payment_method'],
@@ -346,7 +350,7 @@ WHEN CREATING SUPPORT TICKETS:
 STORE POLICIES (quick reference):
 - Delivery: Local and worldwide delivery available (timing depends on destination)
 - Returns: Within 30 days of delivery, unused items in original packaging
-- Payment: bank transfer, card payment, Cash on Delivery (Lagos only)
+- Payment: online through Paystack (card, bank transfer, USSD, mobile money)
 - Support hours: Mon-Sat, 9 AM - 6 PM WAT
 
 CAPABILITIES (what you CAN do):
@@ -373,15 +377,12 @@ You can help customers place orders directly in this chat. Here is how:
    - Phone number
    - Delivery address, city, and region
 3. Ask them to choose a delivery method:
-   - **Standard** — GH₵3,000 (1-3 business days in Lagos, 3-7 days outside)
-   - **Express** — GH₵6,000 (same-day/next-day in Lagos)
-   - **Pickup** — Free (collect from our location)
-4. Ask them to choose a payment method:
-   - **Online payment** (card or bank transfer via checkout) — default
-   - **Cash on Delivery** — Lagos only
+   - **Pickup** — Free (collect from our store, ready in 24 hours)
+   - **Doorstep delivery** — the store will contact them with the delivery cost
+4. Payment is online through Paystack (card, bank transfer, USSD or mobile money).
 5. Summarize the order (items, subtotal, delivery fee, total) and ask the customer to confirm.
 6. Once confirmed, call the create_order tool with the cart items (product IDs and quantities from the cart context), shipping info, delivery method, and payment method.
-7. The tool will return a payment link (for online payment) — present it to the customer. For COD, just confirm the order is placed.
+7. The tool will return a payment link — present it to the customer.
 IMPORTANT: Do NOT ask the customer to list their cart items — you already have them. Just reference what is in their cart and proceed. If the cart is empty, tell them to add products first.
 
 LIMITATIONS (what you CANNOT do directly):
@@ -429,33 +430,9 @@ Address the customer by their first name. You can access their orders and profil
 
 async function detectAuth(request: Request): Promise<{ userId: string | null; email: string | null }> {
   try {
-    const cookieHeader = request.headers.get('cookie') || '';
-    const authToken = cookieHeader
-      .split(';')
-      .map((c) => c.trim())
-      .find((c) => c.startsWith('sb-') && c.includes('-auth-token'))
-      ?.split('=')
-      .slice(1)
-      .join('=');
-
-    if (!authToken) return { userId: null, email: null };
-
-    const decoded = decodeURIComponent(authToken);
-    let tokenData: any;
-    try {
-      tokenData = JSON.parse(decoded);
-    } catch {
-      tokenData = decoded;
-    }
-
-    const accessToken = typeof tokenData === 'string' ? tokenData : tokenData?.[0] || tokenData?.access_token;
+    const accessToken = getAccessToken(request);
     if (!accessToken) return { userId: null, email: null };
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    });
-
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await supabaseAdmin.auth.getUser(accessToken);
     if (user) {
       return { userId: user.id, email: user.email || null };
     }
@@ -477,8 +454,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    const rateLimitKey = sessionId || request.headers.get('x-forwarded-for') || 'default';
-    if (!checkRateLimit(rateLimitKey)) {
+    // Session ids come from the browser, so also limit per IP.
+    const rateLimitKey = sessionId || getClientIdentifier(request);
+    const ipLimit = checkIpRateLimit(`chat:${getClientIdentifier(request)}`, RATE_LIMITS.ai);
+    if (!ipLimit.success || !checkRateLimit(rateLimitKey)) {
       return NextResponse.json(
         { message: "You're sending messages too quickly. Please wait a moment and try again.", quickReplies: [] },
         { status: 429 }
@@ -832,10 +811,12 @@ async function handleWithAI(
 
   // Inject cart context so AI knows what the customer wants to buy
   if (cartItems && cartItems.length > 0) {
-    const cartTotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    // Cart prices are GBP (base); quote them in cedis.
+    const ghs = Number((await getRatesMap()).GHS) || 1;
+    const cartTotal = cartItems.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0) * ghs;
     systemPrompt += `\n\nCUSTOMER'S CURRENT CART (${cartItems.length} item${cartItems.length > 1 ? 's' : ''}, subtotal GH₵${money(cartTotal)}):`;
     for (const item of cartItems) {
-      systemPrompt += `\n- ${item.name} × ${item.quantity} = GH₵${money(item.price * item.quantity)} (ID: ${item.id})`;
+      systemPrompt += `\n- ${item.name} × ${item.quantity} = GH₵${money(Number(item.price) * item.quantity * ghs)} (ID: ${item.id})`;
     }
     systemPrompt += `\nWhen the customer wants to checkout, use these product IDs and quantities for the create_order tool.`;
   }
@@ -1003,7 +984,7 @@ async function executeToolCall(
     case 'search_products': {
       const products = await searchProducts(supabase, args.query, 4);
       return {
-        data: products.map((p) => ({ name: p.name, price: p.price, inStock: p.inStock, slug: p.slug })),
+        data: products.map((p) => ({ name: p.name, price_ghs: p.priceGhs, inStock: p.inStock, slug: p.slug })),
         products,
         quickReplies: products.length > 0 ? ['Show me more', 'Add to cart'] : ['Try different search', 'What do you recommend?'],
       };
@@ -1012,7 +993,7 @@ async function executeToolCall(
     case 'get_product_for_cart': {
       const product = await getProductForCart(supabase, args.slug_or_id);
       return {
-        data: product ? { name: product.name, price: product.price, inStock: product.inStock } : { error: 'Product not found' },
+        data: product ? { name: product.name, price_ghs: product.priceGhs, inStock: product.inStock } : { error: 'Product not found' },
         products: product ? [product] : undefined,
       };
     }
@@ -1106,7 +1087,7 @@ async function executeToolCall(
     case 'get_recommendations': {
       const products = await getRecommendations(supabase, args.context);
       return {
-        data: products.map((p) => ({ name: p.name, price: p.price, inStock: p.inStock, slug: p.slug })),
+        data: products.map((p) => ({ name: p.name, price_ghs: p.priceGhs, inStock: p.inStock, slug: p.slug })),
         products,
         quickReplies: ['Show me more', 'Search for something specific'],
       };

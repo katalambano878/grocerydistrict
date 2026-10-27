@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
+import { getRatesMap } from '@/lib/exchange-rates';
 
 export async function POST(req: Request) {
     try {
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
         const query = supabaseAdmin
             .from('orders')
-            .select('id, order_number, total, email, payment_status');
+            .select('id, order_number, total, currency, email, payment_status, metadata');
 
         const { data: order, error: orderError } = isUUID
             ? await query.eq('id', orderId).single()
@@ -51,15 +52,28 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, message: 'Order is already paid' }, { status: 400 });
         }
 
-        const amount = Number(order.total);
-        if (!amount || amount <= 0) {
+        // Paystack charges this store in GHS. Older orders were recorded in the
+        // shopper's display currency (e.g. GBP); charging that number as cedis
+        // under-collected, so convert from the stored GBP total instead.
+        const orderCurrency = String(order.currency || 'GHS').toUpperCase();
+        let amount = Number(order.total);
+        if (orderCurrency !== 'GHS') {
+            const totalGbp = Number(order.metadata?.total_gbp);
+            const rates = await getRatesMap();
+            const ghsPerUnit = orderCurrency === 'GBP'
+                ? Number(rates.GHS)
+                : Number(rates.GHS) / Number(rates[orderCurrency as keyof typeof rates]);
+            amount = Number.isFinite(totalGbp) && totalGbp > 0
+                ? totalGbp * Number(rates.GHS)
+                : amount * ghsPerUnit;
+            amount = Math.round(amount * 100) / 100;
+        }
+        if (!Number.isFinite(amount) || amount <= 0) {
             return NextResponse.json({ success: false, message: 'Invalid order amount' }, { status: 400 });
         }
 
-        const orderCurrency = (order as { currency?: string }).currency || 'GHS';
-
         const orderRef = order.order_number || orderId;
-        const email = customerEmail || order.email;
+        const email = order.email || customerEmail;
 
         if (!email) {
             return NextResponse.json({ success: false, message: 'Customer email is required' }, { status: 400 });
@@ -77,7 +91,7 @@ export async function POST(req: Request) {
         const payload = {
             email,
             amount: amountInMinorUnits,
-            currency: orderCurrency === 'GBP' ? 'GHS' : orderCurrency,
+            currency: 'GHS',
             reference: uniqueRef,
             callback_url: `${baseUrl}/order-success?order=${orderRef}&payment_success=true`,
             metadata: {
@@ -103,6 +117,9 @@ export async function POST(req: Request) {
                         ...(currentOrder?.metadata || {}),
                         paystack_reference: uniqueRef,
                         paystack_init_at: new Date().toISOString(),
+                        // What Paystack was asked to collect; verify/callback check against it.
+                        paystack_amount: amount,
+                        paystack_currency: 'GHS',
                     }
                 })
                 .eq('order_number', orderRef);
@@ -110,7 +127,7 @@ export async function POST(req: Request) {
             console.warn('[Paystack] Could not save reference to order:', metaErr);
         }
 
-        console.log('[Paystack] Initializing for order:', orderRef, '| Amount:', amount, 'NGN', '| Ref:', uniqueRef);
+        console.log('[Paystack] Initializing for order:', orderRef, '| Amount:', amount, 'GHS', '| Ref:', uniqueRef);
 
         const response = await fetch('https://api.paystack.co/transaction/initialize', {
             method: 'POST',

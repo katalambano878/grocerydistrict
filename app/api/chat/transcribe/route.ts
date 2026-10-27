@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
+import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
+
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
 const groqKey = process.env.GROQ_API_KEY;
 
 export async function POST(request: Request) {
+  const limit = checkRateLimit(`stt:${getClientIdentifier(request)}`, RATE_LIMITS.ai);
+  if (!limit.success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
   if (!groqKey) {
     return NextResponse.json({ error: 'Speech-to-text not configured' }, { status: 500 });
   }
@@ -13,6 +20,9 @@ export async function POST(request: Request) {
 
     if (!audioFile) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
+    }
+    if (audioFile.size > MAX_AUDIO_BYTES) {
+      return NextResponse.json({ error: 'Recording is too long' }, { status: 413 });
     }
 
     // Forward to Groq Whisper API

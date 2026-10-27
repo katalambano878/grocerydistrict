@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-compat";
 import { isPlainPostgres } from "@/lib/db/mode";
+import { PolicyError, assertRpcAllowed, resolveRequester } from "@/lib/db/rest-policy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,7 +31,16 @@ export async function POST(
     return NextResponse.json({ message: "Invalid function name" }, { status: 400 });
   }
 
-  const args = (await req.json().catch(() => ({}))) as Record<string, any>;
+  const who = await resolveRequester(req.headers.get("authorization"));
+  try {
+    assertRpcAllowed(fn, who);
+  } catch (e) {
+    const status = e instanceof PolicyError ? e.status : 403;
+    return NextResponse.json({ message: "Function not allowed" }, { status });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const args = (body && typeof body === "object" && !Array.isArray(body) ? body : {}) as Record<string, any>;
   const client = createClient();
   const { data, error } = await client.rpc(fn, args);
   if (error) {
