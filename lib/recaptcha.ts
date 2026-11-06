@@ -20,13 +20,15 @@ export async function executeRecaptcha(action: string): Promise<string | null> {
     }
 
     try {
-        // Wait for grecaptcha to be ready
+        // Wait for grecaptcha to be ready. Give up after 15s so a blocked or
+        // slow Google script fails the form with a message instead of hanging.
         return await new Promise<string>((resolve, reject) => {
             const w = window as any;
             if (!w.grecaptcha) {
                 reject(new Error('reCAPTCHA script not loaded'));
                 return;
             }
+            setTimeout(() => reject(new Error('reCAPTCHA timed out')), 15_000);
             w.grecaptcha.ready(() => {
                 w.grecaptcha
                     .execute(RECAPTCHA_SITE_KEY, { action })

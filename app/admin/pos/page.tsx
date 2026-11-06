@@ -345,17 +345,28 @@ export default function POSPage() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const { data: prodData } = await supabase
-                .from('products')
-                .select(`id, name, price, quantity, sku, metadata, categories(name), product_images(url)`)
-                .eq('status', 'active')
-                .order('name');
+            const [{ data: prodData }, ratesRes] = await Promise.all([
+                supabase
+                    .from('products')
+                    .select(`id, name, price, quantity, sku, metadata, categories(name), product_images(url)`)
+                    .eq('status', 'active')
+                    .order('name'),
+                fetch('/api/currency/rates').then(r => (r.ok ? r.json() : null)).catch(() => null),
+            ]);
+
+            // Catalogue prices are stored in GBP; the till charges cedis.
+            const ghsRate = Number(ratesRes?.rates?.GHS);
+            if (!(ghsRate > 0)) {
+                alert('Could not load the exchange rate, so prices cannot be shown. Please reload the POS.');
+                return;
+            }
+            const toGhs = (gbp: unknown) => Math.round(Number(gbp || 0) * ghsRate * 100) / 100;
 
             if (prodData) {
                 const formatted: Product[] = prodData.map((p: any) => ({
                     id: p.id,
                     name: p.name,
-                    price: p.price,
+                    price: toGhs(p.price),
                     quantity: p.quantity,
                     category: p.categories?.name || 'Uncategorized',
                     image: p.product_images?.[0]?.url || '',

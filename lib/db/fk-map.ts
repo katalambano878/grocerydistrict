@@ -32,11 +32,32 @@ export const JSONB_COLUMNS: Record<string, Set<string>> = {
   support_tickets: new Set(["metadata"]),
 };
 
+// user_id columns reference auth.users; profiles shares that id, so embeds
+// such as `profiles:user_id(full_name)` resolve to profiles.
 export const FK_MAP: Record<string, FkEdge[]> = {
+  chat_conversations: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
+  ],
+  customers: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
+  ],
+  notifications: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
+  ],
+  orders: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
+  ],
+  audit_logs: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
+  ],
+  addresses: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
+  ],
   ai_memory: [
     { column: "source_conversation_id", foreignTable: "chat_conversations", foreignColumn: "id" },
   ],
   cart_items: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
     { column: "product_id", foreignTable: "products", foreignColumn: "id" },
     { column: "variant_id", foreignTable: "product_variants", foreignColumn: "id" },
   ],
@@ -77,12 +98,14 @@ export const FK_MAP: Record<string, FkEdge[]> = {
     { column: "return_request_id", foreignTable: "return_requests", foreignColumn: "id" },
   ],
   return_requests: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
     { column: "order_id", foreignTable: "orders", foreignColumn: "id" },
   ],
   review_images: [
     { column: "review_id", foreignTable: "reviews", foreignColumn: "id" },
   ],
   reviews: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
     { column: "product_id", foreignTable: "products", foreignColumn: "id" },
   ],
   riders: [
@@ -102,6 +125,7 @@ export const FK_MAP: Record<string, FkEdge[]> = {
     { column: "conversation_id", foreignTable: "chat_conversations", foreignColumn: "id" },
   ],
   wishlist_items: [
+    { column: "user_id", foreignTable: "profiles", foreignColumn: "id" },
     { column: "product_id", foreignTable: "products", foreignColumn: "id" },
   ],
 };

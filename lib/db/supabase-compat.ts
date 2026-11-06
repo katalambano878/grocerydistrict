@@ -80,8 +80,21 @@ function ident(name: string): string {
   return `"${name}"`;
 }
 
+const JSON_PATH_RE = /^([a-z_][a-z0-9_]*)->>([a-z_][a-z0-9_]*)$/i;
+
+/**
+ * Column reference for a filter. Supports PostgREST JSON text paths such as
+ * `metadata->>pos_sale` (compared as text) on top of plain column names.
+ */
+function filterCol(col: string): string {
+  const m = JSON_PATH_RE.exec(col);
+  if (m) return `${ident(m[1])}->>'${m[2]}'`;
+  return ident(col);
+}
+
 /** Cast uuid-like columns to text when the filter value is not a UUID. */
 function uuidSafeLeft(col: string, value: any): string {
+  if (JSON_PATH_RE.test(col)) return filterCol(col);
   const looksUuidCol = col === "id" || col.endsWith("_id");
   if (
     looksUuidCol &&
@@ -435,7 +448,7 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
             params.push(v);
             return `$${params.length}`;
           });
-          clauses.push(`${ident(f.col!)} IN (${ph.join(",")})`);
+          clauses.push(`${filterCol(f.col!)} IN (${ph.join(",")})`);
         }
       } else if (f.kind === "notIn") {
         const raw = String(f.value).replace(/^\(|\)$/g, "").trim();
@@ -468,7 +481,7 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
   }
 
   private isClause(col: string, value: any): string {
-    if (value === null || value === "null") return `${ident(col)} IS NULL`;
+    if (value === null || value === "null") return `${filterCol(col)} IS NULL`;
     if (value === true || value === "true") return `${ident(col)} IS TRUE`;
     if (value === false || value === "false") return `${ident(col)} IS FALSE`;
     if (value === "unknown") return `${ident(col)} IS UNKNOWN`;
@@ -492,7 +505,8 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
     };
     const o = sqlOp[bare];
     if (!o) throw new Error(`Unsupported operator: ${op}`);
-    params.push(value);
+    // ->> yields text, so compare against the text form of the value.
+    params.push(JSON_PATH_RE.test(col) && value !== null ? String(value) : value);
     // Avoid Postgres uuid cast errors for filters like id.eq.ORD-123
     // (PostgREST coerces; we compare as text when the value is not a UUID).
     const left = uuidSafeLeft(col, value);
@@ -673,7 +687,12 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
     return Array.from(cols).join(", ");
   }
 
-  private async resolveEmbeds(rows: Row[], parsed: ParsedSelect): Promise<void> {
+  /**
+   * Attach embeds to `rows`. `owner` is the table the rows came from: the
+   * query's own table at the top level, the embedded table when recursing
+   * (nested embeds such as products(name, categories(name))).
+   */
+  private async resolveEmbeds(rows: Row[], parsed: ParsedSelect, owner: string = this.table): Promise<void> {
     if (rows.length === 0 || parsed.embeds.length === 0) return;
     const pool = getPool();
     for (const embed of parsed.embeds) {
@@ -685,10 +704,10 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
       if (fk) {
         // fk-column form: prefer the owning table's own FK edge to disambiguate
         // (template_id -> sms_templates vs email_templates depends on the table)
-        const own = (FK_MAP[this.table] || []).find((e) => e.column === fk);
+        const own = (FK_MAP[owner] || []).find((e) => e.column === fk);
         if (own) embedTable = own.foreignTable;
       } else {
-        const fwd = (FK_MAP[this.table] || []).find((e) => e.foreignTable === embed.table);
+        const fwd = (FK_MAP[owner] || []).find((e) => e.foreignTable === embed.table);
         if (fwd) fk = fwd.column;
       }
       if (fk) {
@@ -697,7 +716,7 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
           new Set(rows.map((r) => r[fk]).filter((v) => v !== null && v !== undefined))
         );
         const wantId = embedWantsId(embed.select);
-        const innerCols = this.embedColumns(embed.select);
+        const innerCols = this.embedColumns(embed.select, embedTable);
         let related: Row[] = [];
         if (ids.length) {
           const ph = ids.map((_, i) => `$${i + 1}`).join(",");
@@ -709,7 +728,7 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
         }
         const byId = new Map(related.map((r) => [r.id, r]));
         // resolve nested embeds
-        await this.resolveEmbeds(related, embed.select);
+        await this.resolveEmbeds(related, embed.select, embedTable);
         // PostgREST only returns requested columns — drop the join-only id
         if (!wantId) for (const r of related) delete r.id;
         for (const r of rows) {
@@ -717,12 +736,12 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
         }
       } else {
         // reverse embed (has-many): related.<table>_fk -> current.id (array)
-        const edge = this.findReverseEdge(embedTable);
-        const fkCol = edge?.column ?? `${singularize(this.table)}_id`;
+        const edge = (FK_MAP[embedTable] || []).find((e) => e.foreignTable === owner);
+        const fkCol = edge?.column ?? `${singularize(owner)}_id`;
         const parentIds = Array.from(new Set(rows.map((r) => r.id).filter(Boolean)));
         const wantId = embedWantsId(embed.select);
         const wantFk = embed.select.star || embed.select.columns.includes(fkCol);
-        const innerCols = this.embedColumns(embed.select, fkCol);
+        const innerCols = this.embedColumns(embed.select, embedTable, fkCol);
         let related: Row[] = [];
         if (parentIds.length) {
           const ph = parentIds.map((_, i) => `$${i + 1}`).join(",");
@@ -741,7 +760,7 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
           );
           related = res.rows;
         }
-        await this.resolveEmbeds(related, embed.select);
+        await this.resolveEmbeds(related, embed.select, embedTable);
         const grouped = new Map<any, Row[]>();
         for (const r of related) {
           const k = r[fkCol];
@@ -755,20 +774,23 @@ export class QueryBuilder implements PromiseLike<{ data: any; error: any; count:
     }
   }
 
-  private embedColumns(parsed: ParsedSelect, extraFk?: string): string {
+  private embedColumns(parsed: ParsedSelect, table: string, extraFk?: string): string {
     if (parsed.star && parsed.columns.length === 0) return "*";
     const cols = new Set<string>();
     if (parsed.star) cols.add("*");
     for (const c of parsed.columns) cols.add(ident(c));
     cols.add(ident("id"));
     if (extraFk) cols.add(ident(extraFk));
-    for (const e of parsed.embeds) if (e.fkColumn) cols.add(ident(e.fkColumn));
+    // Nested forward embeds need their FK column even when it wasn't selected,
+    // e.g. products(name, categories(name)) needs products.category_id.
+    for (const e of parsed.embeds) {
+      const fk =
+        e.fkColumn ?? (FK_MAP[table] || []).find((x) => x.foreignTable === e.table)?.column;
+      if (fk) cols.add(ident(fk));
+    }
     return Array.from(cols).join(", ");
   }
 
-  private findReverseEdge(relatedTable: string): FkEdge | undefined {
-    return (FK_MAP[relatedTable] || []).find((e) => e.foreignTable === this.table);
-  }
 
   private async execInsert(pool: ReturnType<typeof getPool>): Promise<Row[]> {
     const rowsIn = Array.isArray(this.payload) ? this.payload : [this.payload!];
