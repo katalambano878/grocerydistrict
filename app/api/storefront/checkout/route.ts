@@ -111,7 +111,9 @@ export async function POST(request: Request) {
         return bad(`The selected option for ${product.name} is no longer available.`);
       }
       const unitGbp = Number(variant?.price ?? product.price);
-      if (!Number.isFinite(unitGbp) || unitGbp < 0) return bad(`${product.name} has no valid price`);
+      if (!Number.isFinite(unitGbp) || unitGbp <= 0) {
+        return bad(`${product.name} doesn't have a price yet. Please remove it from your cart.`);
+      }
       subtotalGbp += unitGbp * line.quantity;
       lines.push({ product, variant, line, unitGbp });
     }

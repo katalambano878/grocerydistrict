@@ -198,11 +198,12 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
 
   // Determine the active price: variant price if selected, otherwise base price
   const activePrice = selectedVariant?.price ?? product?.price ?? 0;
+  const isUnpriced = !(Number(activePrice) > 0);
   const activeStock = selectedVariant ? (selectedVariant.stock ?? selectedVariant.quantity ?? product?.stockCount ?? 0) : (product?.stockCount ?? 0);
 
   const handleAddToCart = () => {
     if (!product) return;
-    if (needsVariantSelection) return; // Safety check
+    if (needsVariantSelection || isUnpriced) return; // Safety check
 
     // Build variant display string: "Color / Name" or just "Name" or just "Color"
     let variantLabel: string | undefined;
@@ -414,7 +415,7 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                       From <Price amount={minVariantPrice} />
                     </span>
                   ) : (
-                    <span className="text-3xl lg:text-4xl font-bold text-gray-900"><Price amount={activePrice} /></span>
+                    <span className="text-3xl lg:text-4xl font-bold text-gray-900"><Price amount={activePrice} unpricedLabel="Price on request" /></span>
                   )}
                   {product.compare_at_price && product.compare_at_price > activePrice && (
                     <span className="text-xl text-gray-400 line-through"><Price amount={product.compare_at_price} /></span>
@@ -636,14 +637,14 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
 
                 <div className="flex flex-col sm:flex-row gap-4 mb-8">
                   <button
-                    disabled={activeStock === 0 || needsVariantSelection || needsColorSelection}
-                    className={`flex-1 bg-[#2B2C86] hover:bg-[#222370] text-white py-4 rounded-lg font-semibold transition-colors flex items-center justify-center space-x-2 text-lg whitespace-nowrap cursor-pointer ${(activeStock === 0 || needsVariantSelection || needsColorSelection) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={activeStock === 0 || needsVariantSelection || needsColorSelection || isUnpriced}
+                    className={`flex-1 bg-[#2B2C86] hover:bg-[#222370] text-white py-4 rounded-lg font-semibold transition-colors flex items-center justify-center space-x-2 text-lg whitespace-nowrap cursor-pointer ${(activeStock === 0 || needsVariantSelection || needsColorSelection || isUnpriced) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={handleAddToCart}
                   >
                     <i className="ri-shopping-cart-line text-xl"></i>
-                    <span>{activeStock === 0 ? 'Out of Stock' : needsColorSelection ? 'Select a Color' : needsVariantSelection ? 'Select a Variant' : 'Add to Cart'}</span>
+                    <span>{isUnpriced ? 'Price on request' : activeStock === 0 ? 'Out of Stock' : needsColorSelection ? 'Select a Color' : needsVariantSelection ? 'Select a Variant' : 'Add to Cart'}</span>
                   </button>
-                  {activeStock > 0 && !needsVariantSelection && !needsColorSelection && (
+                  {activeStock > 0 && !isUnpriced && !needsVariantSelection && !needsColorSelection && (
                     <button
                       onClick={handleBuyNow}
                       className="sm:w-auto bg-[#2B2C86] hover:bg-[#222370] text-white px-8 py-4 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer"

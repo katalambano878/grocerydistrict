@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import ProductCard, { type ColorVariant } from '@/components/ProductCard';
@@ -10,7 +10,7 @@ import { cachedQuery } from '@/lib/query-cache';
 import PageHero from '@/components/PageHero';
 import { HERO_IMAGES } from '@/lib/hero-images';
 
-const PRODUCTS_PER_PAGE = 9;
+const PRODUCTS_PER_PAGE = 18;
 
 function formatProduct(p: any) {
   const variants = p.product_variants || [];
@@ -72,7 +72,12 @@ function ShopContent() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const search = searchParams.get('search');
-  const filterKey = `${selectedCategory}|${search ?? ''}|${priceRange.join('-')}|${selectedRating}|${sortBy}`;
+  // Category filters need the category list (for child categories), so a
+  // category filter only takes effect once it has loaded.
+  const categoriesReady = selectedCategory === 'all' || categories.length > 1;
+  const filterKey = `${selectedCategory}|${search ?? ''}|${priceRange.join('-')}|${selectedRating}|${sortBy}|${categoriesReady}`;
+  // One page request at a time, however many scroll triggers fire.
+  const pageRequestedRef = useRef(false);
   const filterKeyRef = useRef(filterKey);
 
   // Initialize from URL params
@@ -108,6 +113,7 @@ function ShopContent() {
 
     if (filterChanged) {
       filterKeyRef.current = filterKey;
+      pageRequestedRef.current = false;
       setProducts([]);
       setHasMore(true);
       setLoading(true);
@@ -183,6 +189,10 @@ function ShopContent() {
                 break;
             }
 
+            // Bulk-imported products share timestamps; a unique tie-breaker
+            // keeps pages from overlapping or skipping rows.
+            query = query.order('id', { ascending: true });
+
             const from = (page - 1) * PRODUCTS_PER_PAGE;
             const to = from + PRODUCTS_PER_PAGE - 1;
             query = query.range(from, to);
@@ -196,13 +206,18 @@ function ShopContent() {
         if (error) throw error;
 
         const formattedProducts = (data ?? []).map(formatProduct);
-        setProducts(prev => (isInitialLoad ? formattedProducts : [...prev, ...formattedProducts]));
+        setProducts(prev => {
+          if (isInitialLoad) return formattedProducts;
+          const seen = new Set(prev.map(p => p.id));
+          return [...prev, ...formattedProducts.filter((p: any) => !seen.has(p.id))];
+        });
         setTotalProducts(count || 0);
-        setHasMore(page * PRODUCTS_PER_PAGE < (count || 0));
+        setHasMore((data?.length ?? 0) === PRODUCTS_PER_PAGE && page * PRODUCTS_PER_PAGE < (count || 0));
       } catch (err) {
         if (!cancelled) console.error('Error fetching products:', err);
       } finally {
         if (!cancelled) {
+          pageRequestedRef.current = false;
           setLoading(false);
           setLoadingMore(false);
         }
@@ -213,25 +228,47 @@ function ShopContent() {
     return () => {
       cancelled = true;
     };
-  }, [page, filterKey, categories, search, selectedCategory, priceRange, selectedRating, sortBy]);
+    // `categories` is read through filterKey (categoriesReady); listing it here
+    // would refetch and re-append the current page when the list arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterKey]);
 
-  // Load more products as the customer scrolls
+  // Load more products as the customer scrolls. IntersectionObserver is the
+  // main trigger; the scroll check covers browsers that throttle observers.
+  const loadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore || pageRequestedRef.current) return;
+    pageRequestedRef.current = true;
+    setPage(prev => prev + 1);
+  }, [hasMore, loading, loadingMore]);
+
   useEffect(() => {
     const sentinel = loadMoreRef.current;
     if (!sentinel || !hasMore || loading || loadingMore) return;
 
+    const nearBottom = () => sentinel.getBoundingClientRect().top < window.innerHeight + 600;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting && hasMore && !loading && !loadingMore) {
-          setPage(prev => prev + 1);
-        }
+        if (entries[0]?.isIntersecting) loadNextPage();
       },
-      { rootMargin: '240px' }
+      { rootMargin: '600px 0px' }
     );
-
     observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, products.length]);
+
+    const onScroll = () => {
+      if (nearBottom()) loadNextPage();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    // A short first page may already leave the sentinel on screen.
+    onScroll();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [hasMore, loading, loadingMore, products.length, loadNextPage]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-brand-cream/40 via-white to-white">
@@ -470,8 +507,16 @@ function ShopContent() {
 
                   {hasMore && products.length > 0 && (
                     <div ref={loadMoreRef} className="mt-10 flex justify-center py-6">
-                      {loadingMore && (
+                      {loadingMore ? (
                         <div className="w-9 h-9 border-4 border-[#2B2C86] border-t-transparent rounded-full animate-spin" aria-label="Loading more products" />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={loadNextPage}
+                          className="rounded-xl border border-brand-carton/30 bg-white px-6 py-3 text-sm font-semibold text-brand-brown hover:border-brand-carton transition-colors"
+                        >
+                          Load more products
+                        </button>
                       )}
                     </div>
                   )}

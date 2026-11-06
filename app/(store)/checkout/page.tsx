@@ -500,8 +500,8 @@ export default function CheckoutPage() {
                       <div className="flex items-center space-x-4">
                         <input type="radio" name="delivery" value="accra" checked={deliveryMethod === 'accra'} onChange={(e) => setDeliveryMethod(e.target.value)} className="w-5 h-5 text-[#2B2C86]" />
                         <div>
-                          <p className="font-semibold text-gray-900">Lagos Delivery</p>
-                          <p className="text-sm text-gray-600">Delivery within Lagos</p>
+                          <p className="font-semibold text-gray-900">Accra Delivery</p>
+                          <p className="text-sm text-gray-600">Delivery within Accra</p>
                         </div>
                       </div>
                       <p className="font-bold text-gray-900">GH₵ 40.00</p>
@@ -511,7 +511,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center space-x-4">
                         <input type="radio" name="delivery" value="outside-accra" checked={deliveryMethod === 'outside-accra'} onChange={(e) => setDeliveryMethod(e.target.value)} className="w-5 h-5 text-[#2B2C86]" />
                         <div>
-                          <p className="font-semibold text-gray-900">Outside Lagos Delivery</p>
+                          <p className="font-semibold text-gray-900">Outside Accra Delivery</p>
                           <p className="text-sm text-gray-600">Delivery to bus stations (VIP, OA, STC, etc.)</p>
                         </div>
                       </div>

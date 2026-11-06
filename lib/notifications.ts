@@ -106,16 +106,17 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
     }
 }
 
-// Helper to format phone number for SMS (Nigeria +234)
-function formatPhoneNumber(phone: string): string {
+// Format a phone number for SMS in international form. Local numbers are
+// Ghanaian (+233): 024 123 4567 -> +233241234567.
+export function formatPhoneNumber(phone: string): string {
     let cleaned = phone.replace(/\D/g, '');
 
-    if (cleaned.startsWith('234')) {
-        // Already includes Nigeria country code
+    if (cleaned.startsWith('00')) {
+        cleaned = cleaned.substring(2);
     } else if (cleaned.startsWith('0')) {
-        cleaned = '234' + cleaned.substring(1);
-    } else if (cleaned.length === 10) {
-        cleaned = '234' + cleaned;
+        cleaned = '233' + cleaned.substring(1);
+    } else if (cleaned.length === 9) {
+        cleaned = '233' + cleaned;
     }
 
     return '+' + cleaned;

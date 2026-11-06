@@ -5,8 +5,8 @@ import { HERO_IMAGES } from '@/lib/hero-images';
 export default function BlogPage() {
   const featuredPost = {
     id: '1',
-    title: 'The Ultimate Guide to Online Shopping in Nigeria',
-    excerpt: 'Everything you need to know about safe, convenient online shopping in Nigeria. From payment methods to delivery options, we cover it all.',
+    title: 'The Ultimate Guide to Online Shopping in Ghana',
+    excerpt: 'Everything you need to know about safe, convenient online shopping in Ghana. From payment methods to delivery options, we cover it all.',
     image: 'https://via.placeholder.com/400?text=Product',
     category: 'Shopping Tips',
     date: 'December 15, 2024',
@@ -37,8 +37,8 @@ export default function BlogPage() {
     },
     {
       id: '1',
-      title: 'The Ultimate Guide to Online Shopping in Nigeria',
-      excerpt: 'Everything you need to know about safe, convenient online shopping in Nigeria. From payment methods to delivery options.',
+      title: 'The Ultimate Guide to Online Shopping in Ghana',
+      excerpt: 'Everything you need to know about safe, convenient online shopping in Ghana. From payment methods to delivery options.',
       image: 'https://via.placeholder.com/400?text=Product',
       category: 'Shopping Tips',
       date: 'December 15, 2024',
@@ -218,7 +218,7 @@ export default function BlogPage() {
               <div className="mt-8 pt-8 border-t border-gray-200">
                 <h3 className="text-xl font-bold text-gray-900 mb-6">Popular Tags</h3>
                 <div className="flex flex-wrap gap-2">
-                  {['Shopping', 'Quality', 'Reviews', 'Nigeria', 'Delivery', 'Tips', 'Home', 'Sourcing'].map((tag, index) => (
+                  {['Shopping', 'Quality', 'Reviews', 'Ghana', 'Delivery', 'Tips', 'Home', 'Sourcing'].map((tag, index) => (
                     <button
                       key={index}
                       className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-700 hover:border-[#2B2C86] hover:text-gray-900 transition-colors cursor-pointer whitespace-nowrap"

@@ -83,6 +83,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }, [cart, isInitialized]);
 
     const addToCart = (newItem: CartItem) => {
+        // Unpriced products ("Price on request") can't be checked out.
+        if (!(Number(newItem.price) > 0)) return;
         setCart((prevCart) => {
             const existingItemIndex = prevCart.findIndex(
                 (item) => item.id === newItem.id && item.variant === newItem.variant

@@ -68,7 +68,7 @@ export default function CartSuggestions() {
               <div className="p-3">
                 <h4 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-2">{product.name}</h4>
                 <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-lg font-bold text-gray-900"><Price amount={product.price} /></span>
+                  <span className="text-lg font-bold text-gray-900"><Price amount={product.price} unpricedLabel="Price on request" /></span>
                   {product.originalPrice && (
                     <span className="text-xs text-gray-400 line-through"><Price amount={product.originalPrice} /></span>
                   )}

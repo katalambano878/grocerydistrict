@@ -920,7 +920,7 @@ function ProductCard({ product, onAddToCart }: { product: ChatProduct; onAddToCa
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{product.name}</p>
-          <p className="text-sm font-bold text-gray-600">GH₵{money(product.priceGhs ?? product.price)}</p>
+          <p className="text-sm font-bold text-gray-600">{Number(product.priceGhs ?? product.price) > 0 ? `GH₵${money(product.priceGhs ?? product.price)}` : 'Price on request'}</p>
           <span className={`text-[10px] font-medium ${product.inStock ? 'text-gray-600' : 'text-[#FF6666]'}`}>
             {product.inStock ? 'In Stock' : 'Out of Stock'}
           </span>

@@ -543,6 +543,9 @@ export async function createChatOrder(
       if (!product) {
         return { success: false, message: `Product not found: ${item.productId}` };
       }
+      if (!(Number(product.price) > 0)) {
+        return { success: false, message: `"${product.name}" doesn't have a price yet, so it can't be ordered online. Please contact the store for a quote.` };
+      }
       if (product.quantity < item.quantity) {
         return { success: false, message: `Sorry, "${product.name}" only has ${product.quantity} units in stock, but you requested ${item.quantity}.` };
       }

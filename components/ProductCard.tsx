@@ -74,6 +74,7 @@ export default function ProductCard({
   const { addToCart } = useCart();
   const [activeColor, setActiveColor] = useState<string | null>(null);
   const displayPrice = hasVariants && minVariantPrice ? minVariantPrice : price;
+  const isPriced = Number(displayPrice) > 0;
   const discount = originalPrice ? Math.round((1 - displayPrice / originalPrice) * 100) : 0;
   const MAX_SWATCHES = 4;
 
@@ -153,10 +154,10 @@ export default function ProductCard({
               {hasVariants && minVariantPrice ? (
                 <>From <Price amount={minVariantPrice} /></>
               ) : (
-                <Price amount={price} />
+                <Price amount={price} unpricedLabel="Price on request" />
               )}
             </span>
-            {originalPrice && (
+            {isPriced && originalPrice && (
               <span className="text-[10px] sm:text-xs text-gray-400 line-through">
                 <Price amount={originalPrice} />
               </span>
@@ -174,9 +175,9 @@ export default function ProductCard({
             <button
               onClick={(e) => {
                 e.preventDefault();
-                if (inStock) addToCart({ id, name, price, image, quantity: moq, slug, maxStock, moq });
+                if (inStock && isPriced) addToCart({ id, name, price, image, quantity: moq, slug, maxStock, moq });
               }}
-              disabled={!inStock}
+              disabled={!inStock || !isPriced}
               className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-brand-carton text-white hover:bg-brand-brown transition-colors text-xs sm:text-sm shrink-0 disabled:bg-gray-300 disabled:cursor-not-allowed"
               aria-label={moq > 1 ? `Add ${moq} to cart` : 'Add to cart'}
             >

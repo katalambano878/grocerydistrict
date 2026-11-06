@@ -1,6 +1,7 @@
 'use server';
 
 import { verifyAdminToken } from '@/lib/auth';
+import { formatPhoneNumber } from '@/lib/notifications';
 
 export async function testSmsAction(phone: string, message: string, authToken: string) {
     // SECURITY: Verify admin authentication before allowing SMS sending
@@ -35,15 +36,7 @@ export async function testSmsAction(phone: string, message: string, authToken: s
             return { success: false, error: 'Invalid or too long message' };
         }
 
-        // Format phone number for Nigeria
-        let cleaned = phone.replace(/\D/g, '');
-        if (cleaned.startsWith('0')) {
-            cleaned = '234' + cleaned.slice(1);
-        }
-        if (!cleaned.startsWith('234') && cleaned.length === 10) {
-            cleaned = '234' + cleaned;
-        }
-        const recipient = '+' + cleaned;
+        const recipient = formatPhoneNumber(phone);
 
         // Make API call per Moolre documentation
         const response = await fetch('https://api.moolre.com/open/sms/send', {

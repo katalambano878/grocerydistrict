@@ -1,5 +1,6 @@
 'use client';
 
+import { GHANA_REGIONS } from '@/lib/ghana-regions';
 import { money, asNumber } from '@/lib/format-money';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
@@ -238,13 +239,6 @@ export default function POSPage() {
     const barcodeBuffer = useRef('');
     const barcodeTimeout = useRef<NodeJS.Timeout | null>(null);
 
-    const nigeriaStates = [
-        'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
-        'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Gombe', 'Imo',
-        'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos',
-        'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers',
-        'Sokoto', 'Taraba', 'Yobe', 'Zamfara', 'Federal Capital Territory'
-    ];
 
     // ─── Init ───────────────────────────────────────────────────────────────
 
@@ -1308,7 +1302,7 @@ export default function POSPage() {
                                                     <select value={guestDetails.region} onChange={e => setGuestDetails({ ...guestDetails, region: e.target.value })}
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 outline-none">
                                                         <option value="">Region *</option>
-                                                        {nigeriaStates.map(r => <option key={r} value={r}>{r}</option>)}
+                                                        {GHANA_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                                                     </select>
                                                 </div>
                                             </div>
