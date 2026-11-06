@@ -30,6 +30,7 @@ function corsHeaders(): HeadersInit {
     "Access-Control-Allow-Headers":
       "authorization, apikey, content-type, prefer, x-client-info, accept-profile, content-profile",
     "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
+    "Access-Control-Expose-Headers": "Content-Range",
   };
 }
 

@@ -98,6 +98,24 @@ async function verifyPlainPgAdmin(
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // One canonical host. The browser data client talks to www, so a page
+  // served from the bare domain makes cross-origin calls (hiding headers such
+  // as the product count) and keeps a separate login and cart. Only page
+  // loads are redirected; API, webhook and data routes answer on either host.
+  const host = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase();
+  if (
+    host === 'grocerydistrict.shop' &&
+    (request.method === 'GET' || request.method === 'HEAD') &&
+    !/^\/(api|rest|auth\/v1|storage)\//.test(pathname)
+  ) {
+    const url = new URL(request.url);
+    url.protocol = 'https:';
+    url.host = 'www.grocerydistrict.shop';
+    url.port = '';
+    return NextResponse.redirect(url, 308);
+  }
+
   const response = NextResponse.next();
 
   response.headers.set('X-Content-Type-Options', 'nosniff');
