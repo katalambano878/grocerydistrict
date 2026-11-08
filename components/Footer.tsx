@@ -150,7 +150,10 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-white/20 mt-5 pt-3.5 flex flex-col md:flex-row justify-between items-center gap-2 text-[11px] text-white/60">
-          <p>&copy; {new Date().getFullYear()} {siteName}. All rights reserved.</p>
+          <p>
+            &copy; {new Date().getFullYear()} {siteName}. All rights reserved. &middot; Powered by{' '}
+            <a href="https://doctorbarns.com" target="_blank" rel="noopener" className="text-white/60 hover:underline">Doctor Barns Tech</a>
+          </p>
           <div className="flex gap-3 grayscale opacity-50">
             <i className="ri-visa-line text-xl"></i>
             <i className="ri-mastercard-line text-xl"></i>
