@@ -13,6 +13,8 @@ import {
 } from "@/lib/db/rest-policy";
 import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from "@/lib/rate-limit";
 
+import { guardTable } from "@/lib/db/rest-guard";
+
 /** Throttle writes from the public (staff are trusted). */
 function writeLimited(req: NextRequest, isStaff: boolean): boolean {
   if (isStaff) return false;
@@ -83,7 +85,7 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }
 
-export async function GET(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
+async function getUnguarded(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
   return handle(req, ctx, async (table) => {
     const who = await resolveRequester(req.headers.get("authorization"));
     const client = createClient();
@@ -121,7 +123,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ table: stri
   });
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
+async function postUnguarded(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
   return handle(req, ctx, async (table) => {
     const body = await req.json().catch(() => null);
     if (body == null || typeof body !== "object") return jsonError("Invalid JSON body");
@@ -153,7 +155,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ table: str
   });
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
+async function patchUnguarded(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
   return handle(req, ctx, async (table) => {
     const body = await req.json().catch(() => null);
     if (body == null || typeof body !== "object" || Array.isArray(body)) {
@@ -180,7 +182,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ table: st
   });
 }
 
-export async function DELETE(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
+async function deleteUnguarded(req: NextRequest, ctx: { params: Promise<{ table: string }> }) {
   return handle(req, ctx, async (table) => {
     const who = await resolveRequester(req.headers.get("authorization"));
     if (writeLimited(req, who.isStaff)) return jsonError("Too many requests", 429);
@@ -208,3 +210,8 @@ function withoutSelect(params: URLSearchParams): URLSearchParams {
   out.delete("columns");
   return out;
 }
+
+export const GET = guardTable("GET", getUnguarded);
+export const POST = guardTable("POST", postUnguarded);
+export const PATCH = guardTable("PATCH", patchUnguarded);
+export const DELETE = guardTable("DELETE", deleteUnguarded);
